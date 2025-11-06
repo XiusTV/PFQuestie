@@ -1,0 +1,12 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+  <Include file="..\db\items-bronzebeard.lua"/>
+  <Include file="..\db\units-bronzebeard.lua"/>
+  <Include file="..\db\objects-bronzebeard.lua"/>
+  <Include file="..\db\refloot-bronzebeard.lua"/>
+  <Include file="..\db\quests-itemreq-bronzebeard.lua"/>
+  <Include file="..\db\quests-bronzebeard.lua"/>
+  <Include file="..\db\zones-bronzebeard.lua"/>
+  <Include file="..\db\minimap-bronzebeard.lua"/>
+  <Include file="..\db\areatrigger-bronzebeard.lua"/>
+  <Include file="..\db\meta-bronzebeard.lua"/>
+</Ui>

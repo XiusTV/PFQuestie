@@ -1,0 +1,8 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+  <Include file="..\db\enUS\items-bronzebeard.lua"/>
+  <Include file="..\db\enUS\units-bronzebeard.lua"/>
+  <Include file="..\db\enUS\objects-bronzebeard.lua"/>
+  <Include file="..\db\enUS\quests-bronzebeard.lua"/>
+  <Include file="..\db\enUS\zones-bronzebeard.lua"/>
+  <Include file="..\db\enUS\professions-bronzebeard.lua"/>
+</Ui>
