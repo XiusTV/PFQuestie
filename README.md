@@ -4,6 +4,7 @@
 
 * [ElvUI VibeUI](https://github.com/XiusTV/Elvui-VibeUI) - Modern ElvUI configuration
 * [Modern TSM](https://github.com/XiusTV/Modern-TSM-335) - Performance-optimized TradeSkillMaster
+* [PFQuest-WotLK](https://github.com/XiusTV/PFQuest-Wotlk) - Rework Coming Soon
 
 **Support**: [Buy Me A Coffee](https://www.buymeacoffee.com/xiustv)
 
