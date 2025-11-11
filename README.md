@@ -1,3 +1,13 @@
+**Other WotLK 3.3.5 Addons by XiusTV:**
+
+* [ElvUI VibeUI](https://github.com/XiusTV/Elvui-VibeUI) - Modern ElvUI configuration
+* [Modern TSM](https://github.com/XiusTV/Modern-TSM-335) - Performance-optimized TradeSkillMaster
+* [PFQuestie](https://github.com/XiusTV/PFQuestie) - Rework of Pfquest and Questie integrated into one coming soon
+
+Support: [Buy Me A Coffee](https://buymeacoffee.com/xius)
+
+Interact with me on discord @ https://discord.gg/neEqeFFUsE for help related to all my addons!
+
 # PFQuestie - Enhanced Quest Suite for WotLK 3.3.5
 
 **Unified quest database suite for World of Warcraft 3.3.5 with Questie integration, automated quest capture, and party synchronization.**
