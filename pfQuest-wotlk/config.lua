@@ -1,6 +1,12 @@
 -- multi api compat
 local compat = pfQuestCompat
 local L = pfQuest_Loc
+local wipe = _G.wipe or function(tbl)
+  for key in pairs(tbl) do
+    tbl[key] = nil
+  end
+end
+local math_max = math.max
 
 pfQuest_history = {}
 pfQuest_colors = {}
@@ -63,7 +69,44 @@ pfQuest_defconfig = {
   { text = L["Enable Minimap Button"],
     default = "1", type = "checkbox", config = "minimapbutton" },
   { text = L["Enable Quest Tracker"],
-    default = "1", type = "checkbox", config = "showtracker" },
+    default = "1", type = "checkbox", config = "showtracker", onupdate = function()
+      if Questie and Questie.LoaderInitialized then
+        if pfQuest_config["showtracker"] == "1" then
+          Questie.db.profile.trackerEnabled = true
+          QuestieLoader:ImportModule("QuestieTracker"):Enable()
+        else
+          Questie.db.profile.trackerEnabled = false
+          local tracker = QuestieLoader:ImportModule("QuestieTracker")
+          if tracker and tracker.Disable then
+            tracker:Disable()
+          end
+        end
+      end
+    end },
+  { text = L["Enable Quest Auto Accept"],
+    default = "0", type = "checkbox", config = "autoaccept", onupdate = function()
+      if Questie and Questie.db and Questie.db.profile then
+        Questie.db.profile.autoaccept = pfQuest_config["autoaccept"] == "1"
+      end
+    end },
+  { text = L["Enable Quest Auto Turn-In"],
+    default = "0", type = "checkbox", config = "autocomplete", onupdate = function()
+      if Questie and Questie.db and Questie.db.profile then
+        Questie.db.profile.autocomplete = pfQuest_config["autocomplete"] == "1"
+      end
+    end },
+  { text = L["Auto Accept Daily Quests"],
+    default = "0", type = "checkbox", config = "autoacceptdailyonly", onupdate = function()
+      if QuestieAuto and QuestieAuto.settings then
+        QuestieAuto.settings.dailyOnly = pfQuest_config["autoacceptdailyonly"] == "1"
+      end
+    end },
+  { text = L["Auto Quest Exclusions (comma or newline separated)"],
+    default = "", type = "text", config = "autoexclusions", onupdate = function()
+      if QuestieAuto and QuestieAuto.SetCustomExclusions then
+        QuestieAuto:SetCustomExclusions(pfQuest_config["autoexclusions"] or "")
+      end
+    end },
   { text = L["Enable Quest Log Buttons"],
     default = "1", type = "checkbox", config = "questlogbuttons" },
   { text = L["Enable Quest Link Support"],
@@ -76,6 +119,20 @@ pfQuest_defconfig = {
     default = "1", type = "text", config = "mindropchance" },
   { text = L["Show Tooltips"],
     default = "1", type = "checkbox", config = "showtooltips" },
+  { text = L["Show Party Progress On Tooltips"] or "Show Party Progress On Tooltips",
+    default = "1", type = "checkbox", config = "tooltippartyprogress", onupdate = function()
+      local partySync = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("QuestiePartySync")
+      if partySync and partySync.RefreshFromConfig then
+        partySync:RefreshFromConfig()
+      end
+    end },
+  { text = L["Disable Party Progress Yells"] or "Disable Party Progress Yells",
+    default = "0", type = "checkbox", config = "disablepartyells", onupdate = function()
+      local partySync = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("QuestiePartySync")
+      if partySync and partySync.RefreshFromConfig then
+        partySync:RefreshFromConfig()
+      end
+    end },
   { text = L["Show Help On Tooltips"],
     default = "1", type = "checkbox", config = "tooltiphelp" },
   { text = L["Show Level On Quest Tracker"],
@@ -91,6 +148,82 @@ pfQuest_defconfig = {
     default = "12", type = "text", config = "trackerfontsize", },
   { text = L["Quest Tracker Unfold Objectives"],
     default = "0", type = "checkbox", config = "trackerexpand" },
+  { text = L["Enable Quest Focus"] or "Enable Quest Focus",
+    default = "0", type = "checkbox", config = "focusenable", onupdate = function()
+      local focus = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("QuestieFocus")
+      if focus and focus.RefreshFromConfig then
+        focus:RefreshFromConfig()
+      end
+    end },
+  { text = L["Fade Non-Focused Quest Icons"] or "Fade Non-Focused Quest Icons",
+    default = "1", type = "checkbox", config = "focusfade", onupdate = function()
+      local focus = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("QuestieFocus")
+      if focus and focus.Apply then
+        focus:Apply()
+      end
+    end },
+  { text = L["Dim Cluster Nodes While Focused"] or "Dim Cluster Nodes While Focused",
+    default = "1", type = "checkbox", config = "focusclusterdim", onupdate = function()
+      local focus = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("QuestieFocus")
+      if focus and focus.RefreshFromConfig then
+        focus:RefreshFromConfig()
+      elseif focus and focus.Apply then
+        focus:Apply()
+      end
+    end },
+  { text = L["Highlight Focused Quest Icons"] or "Highlight Focused Quest Icons",
+    default = "1", type = "checkbox", config = "focushighlight", onupdate = function()
+      local focus = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("QuestieFocus")
+      if focus and focus.RefreshFromConfig then
+        focus:RefreshFromConfig()
+      elseif focus and focus.Apply then
+        focus:Apply()
+      end
+    end },
+  { text = L["Share Quest Focus With Party"] or "Share Quest Focus With Party",
+    default = "0", type = "checkbox", config = "focuspartyshare", onupdate = function()
+      local focus = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("QuestieFocus")
+      if focus and focus.RefreshFromConfig then
+        focus:RefreshFromConfig()
+      end
+    end },
+  { text = L["Show Party Focus Highlights"] or "Show Party Focus Highlights",
+    default = "0", type = "checkbox", config = "focuspartyreceive", onupdate = function()
+      local focus = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("QuestieFocus")
+      if focus and focus.RefreshFromConfig then
+        focus:RefreshFromConfig()
+      end
+    end },
+  { text = L["Stick Durability Frame"] or "Stick Durability Frame",
+    default = "0", type = "checkbox", config = "stickydurability", onupdate = function()
+      local tracker = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("QuestieTracker")
+      if tracker and tracker.SyncProfileFromConfig then
+        tracker:SyncProfileFromConfig()
+      end
+      if tracker and tracker.UpdateAnchoredFrames then
+        tracker:UpdateAnchoredFrames()
+      end
+    end },
+  { text = L["Stick VoiceOver Frame"] or "Stick VoiceOver Frame",
+    default = "0", type = "checkbox", config = "stickyvoiceover", onupdate = function()
+      local tracker = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("QuestieTracker")
+      if tracker and tracker.SyncProfileFromConfig then
+        tracker:SyncProfileFromConfig()
+      end
+      if tracker and tracker.UpdateAnchoredFrames then
+        tracker:UpdateAnchoredFrames()
+      end
+    end },
+  { text = L["Fade Tracker When Idle"] or "Fade Tracker When Idle",
+    default = "0", type = "checkbox", config = "trackerfade", onupdate = function()
+      local tracker = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("QuestieTracker")
+      if tracker and tracker.SyncProfileFromConfig then
+        tracker:SyncProfileFromConfig()
+      end
+      if tracker and tracker.RefreshFade then
+        tracker:RefreshFade()
+      end
+    end },
   { text = L["Quest Objective Spawn Points (World Map)"],
     default = "1", type = "checkbox", config = "showspawn" },
   { text = L["Quest Objective Spawn Points (Mini Map)"],
@@ -170,8 +303,8 @@ StaticPopupDialogs["PFQUEST_RESET"] = {
 
 pfQuestConfig = CreateFrame("Frame", "pfQuestConfig", UIParent)
 pfQuestConfig:Hide()
-pfQuestConfig:SetWidth(280)
-pfQuestConfig:SetHeight(550)
+pfQuestConfig:SetWidth(760)
+pfQuestConfig:SetHeight(560)
 pfQuestConfig:SetPoint("CENTER", 0, 0)
 pfQuestConfig:SetFrameStrata("HIGH")
 pfQuestConfig:SetMovable(true)
@@ -309,96 +442,211 @@ function pfQuestConfig:MigrateHistory()
   end
 end
 
-local maxh, maxw = 0, 0
-local width, height = 230, 22
-local maxtext = 130
 local configframes = {}
 function pfQuestConfig:CreateConfigEntries(config)
-  local count = 1
+  if self.categories then
+    for _, cat in pairs(self.categories) do
+      if cat.button then
+        cat.button:Hide()
+      end
+      if cat.frame then
+        cat.frame:Hide()
+      end
+    end
+  end
 
-  for _, data in pairs(config) do
-    if data.type then
-      -- basic frame
-      local frame = CreateFrame("Frame", "pfQuestConfig" .. count, pfQuestConfig)
-      configframes[data.text] = frame
+  if self.categoryButtons then
+    for _, button in pairs(self.categoryButtons) do
+      button:Hide()
+    end
+  end
 
-      -- caption
-      frame.caption = frame:CreateFontString("Status", "LOW", "GameFontWhite")
+  wipe(configframes)
+
+  self.categories = {}
+  self.categoryOrder = {}
+  self.categoryButtons = {}
+
+  local sidebarWidth = 190
+
+  if not self.sidebar then
+    self.sidebar = CreateFrame("Frame", nil, self)
+    self.sidebar:SetPoint("TOPLEFT", 10, -40)
+    self.sidebar:SetPoint("BOTTOMLEFT", 10, 50)
+    self.sidebar:SetWidth(sidebarWidth)
+    pfUI.api.CreateBackdrop(self.sidebar, nil, true, 0.5)
+  end
+
+  if not self.content then
+    self.content = CreateFrame("Frame", nil, self)
+    self.content:SetPoint("TOPLEFT", self.sidebar, "TOPRIGHT", 10, 0)
+    self.content:SetPoint("BOTTOMRIGHT", -10, 50)
+    pfUI.api.CreateBackdrop(self.content, nil, true, 0.5)
+
+    self.scroll = CreateFrame("ScrollFrame", "pfQuestConfigScroll", self.content, "UIPanelScrollFrameTemplate")
+    self.scroll:SetPoint("TOPLEFT", 6, -6)
+    self.scroll:SetPoint("BOTTOMRIGHT", -26, 6)
+    if self.scroll.SetClipsChildren then
+      self.scroll:SetClipsChildren(true)
+    end
+
+    self.scrollContent = CreateFrame("Frame", nil, self.scroll)
+    self.scrollContent:SetPoint("TOPLEFT", 0, 0)
+    self.scrollContent:SetWidth(math_max(self.content:GetWidth() - 32, 0))
+    self.scrollContent:SetHeight(1)
+    self.scroll:SetScrollChild(self.scrollContent)
+
+    self.content:SetScript("OnSizeChanged", function(_, width)
+      if not pfQuestConfig.scrollContent then return end
+      pfQuestConfig.scrollContent:SetWidth(math_max(width - 32, 0))
+    end)
+  end
+
+  local DEFAULT_CATEGORY = L["General"] or "General"
+  local currentCategory = nil
+
+  for _, data in ipairs(config) do
+    if data.type == "header" then
+      currentCategory = data.text or DEFAULT_CATEGORY
+      if not self.categories[currentCategory] then
+        table.insert(self.categoryOrder, currentCategory)
+        self.categories[currentCategory] = { entries = {} }
+      end
+    elseif data.type then
+      if not currentCategory then
+        currentCategory = DEFAULT_CATEGORY
+        if not self.categories[currentCategory] then
+          table.insert(self.categoryOrder, currentCategory)
+          self.categories[currentCategory] = { entries = {} }
+        end
+      end
+      table.insert(self.categories[currentCategory].entries, data)
+    end
+  end
+
+  local previousButton = nil
+  for _, name in ipairs(self.categoryOrder) do
+    local category = self.categories[name]
+
+    local button = CreateFrame("Button", nil, self.sidebar)
+    button:SetWidth(sidebarWidth - 20)
+    button:SetHeight(26)
+    if previousButton then
+      button:SetPoint("TOP", previousButton, "BOTTOM", 0, -6)
+    else
+      button:SetPoint("TOP", self.sidebar, "TOP", 0, -12)
+    end
+    button.text = button:CreateFontString(nil, "OVERLAY", "GameFontWhite")
+    button.text:SetAllPoints(button)
+    button.text:SetFont(pfUI.font_default, pfUI_config.global.font_size, "OUTLINE")
+    button.text:SetText(name)
+    pfUI.api.SkinButton(button)
+    button:SetScript("OnClick", function()
+      pfQuestConfig:ShowCategory(name)
+    end)
+
+    category.button = button
+    self.categoryButtons[name] = button
+    previousButton = button
+
+    local container = CreateFrame("Frame", nil, self.scrollContent)
+    container:SetPoint("TOPLEFT", self.scrollContent, "TOPLEFT", 12, -12)
+    container:SetPoint("RIGHT", self.scrollContent, "RIGHT", -12, 0)
+    container:Hide()
+
+    category.frame = container
+    category.totalHeight = 20
+
+    container.title = container:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    container.title:SetFont(pfUI.font_default, pfUI_config.global.font_size + 2, "OUTLINE")
+    container.title:SetPoint("TOPLEFT", container, "TOPLEFT", 0, 0)
+    container.title:SetText(name)
+    container.title:SetJustifyH("LEFT")
+
+    local anchor = container.title
+    local spacing = 10
+    local rowHeight = 26
+
+    for _, data in ipairs(category.entries) do
+      local entryData = data
+      local frame = CreateFrame("Frame", nil, container)
+      frame:SetHeight(rowHeight)
+      frame:SetPoint("LEFT", container, "LEFT", 0, 0)
+      frame:SetPoint("RIGHT", container, "RIGHT", 0, 0)
+      frame:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -spacing)
+      anchor = frame
+
+      frame.caption = frame:CreateFontString(nil, "OVERLAY", "GameFontWhite")
       frame.caption:SetFont(pfUI.font_default, pfUI_config.global.font_size, "OUTLINE")
-      frame.caption:SetPoint("LEFT", 20, 0)
+      frame.caption:SetPoint("LEFT", frame, "LEFT", 0, 0)
+      frame.caption:SetPoint("RIGHT", frame, "RIGHT", -180, 0)
       frame.caption:SetJustifyH("LEFT")
-      frame.caption:SetText(data.text)
-      maxtext = max(maxtext, frame.caption:GetStringWidth())
+      frame.caption:SetText(entryData.text or "")
 
-      -- header
-      if data.type == "header" then
-        frame.caption:SetPoint("LEFT", 10, 0)
-        frame.caption:SetTextColor(.3,1,.8)
-        frame.caption:SetFont(pfUI.font_default, pfUI_config.global.font_size+2, "OUTLINE")
-
-      -- checkbox
-      elseif data.type == "checkbox" then
+      if entryData.type == "checkbox" then
         frame.input = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
         frame.input:SetNormalTexture("")
         frame.input:SetPushedTexture("")
         frame.input:SetHighlightTexture("")
         pfUI.api.CreateBackdrop(frame.input, nil, true)
-
-        frame.input:SetWidth(16)
-        frame.input:SetHeight(16)
-        frame.input:SetPoint("RIGHT" , -20, 0)
-
-        frame.input.config = data.config
-        if pfQuest_config[data.config] == "1" then
+        frame.input:SetWidth(18)
+        frame.input:SetHeight(18)
+        frame.input:SetPoint("RIGHT", frame, "RIGHT", 0, 0)
+        frame.input.config = entryData.config
+        if pfQuest_config[entryData.config] == "1" then
           frame.input:SetChecked()
         end
-
-        frame.input:SetScript("OnClick", function ()
+        frame.input:SetScript("OnClick", function()
           if this:GetChecked() then
             pfQuest_config[this.config] = "1"
           else
             pfQuest_config[this.config] = "0"
           end
 
+          if entryData.onupdate then
+            entryData.onupdate()
+          end
+
           pfQuest:ResetAll()
         end)
-      elseif data.type == "text" then
-        -- input field
+      elseif entryData.type == "text" then
         frame.input = CreateFrame("EditBox", nil, frame)
         frame.input:SetTextColor(.2,1,.8,1)
         frame.input:SetJustifyH("RIGHT")
-        frame.input:SetTextInsets(5,5,5,5)
-        frame.input:SetWidth(32)
-        frame.input:SetHeight(16)
-        frame.input:SetPoint("RIGHT", -20, 0)
+        frame.input:SetTextInsets(6,6,4,4)
+        frame.input:SetWidth(140)
+        frame.input:SetHeight(20)
+        frame.input:SetPoint("RIGHT", frame, "RIGHT", 0, 0)
         frame.input:SetFontObject(GameFontNormal)
         frame.input:SetAutoFocus(false)
-        frame.input:SetScript("OnEscapePressed", function(self)
+        frame.input:SetScript("OnEscapePressed", function()
           this:ClearFocus()
         end)
-
-        frame.input.config = data.config
-        frame.input:SetText(pfQuest_config[data.config])
-
-        frame.input:SetScript("OnTextChanged", function(self)
-          pfQuest_config[this.config] = this:GetText()
+        frame.input:SetScript("OnEnterPressed", function()
+          this:ClearFocus()
         end)
-
+        frame.input.config = entryData.config
+        frame.input:SetText(pfQuest_config[entryData.config])
+        frame.input:SetScript("OnTextChanged", function()
+          pfQuest_config[this.config] = this:GetText()
+          if entryData.onupdate then
+            entryData.onupdate()
+          end
+        end)
         pfUI.api.CreateBackdrop(frame.input, nil, true)
-      elseif data.type == "button" and data.func then
+      elseif entryData.type == "button" and entryData.func then
         frame.input = CreateFrame("Button", nil, frame)
-        frame.input:SetWidth(32)
-        frame.input:SetHeight(16)
-        frame.input:SetPoint("RIGHT", -20, 0)
-        frame.input:SetScript("OnClick", data.func)
-        frame.input.text = frame.input:CreateFontString("Caption", "LOW", "GameFontWhite")
+        frame.input:SetWidth(120)
+        frame.input:SetHeight(20)
+        frame.input:SetPoint("RIGHT", frame, "RIGHT", 0, 0)
+        frame.input:SetScript("OnClick", entryData.func)
+        frame.input.text = frame.input:CreateFontString(nil, "OVERLAY", "GameFontWhite")
         frame.input.text:SetAllPoints(frame.input)
         frame.input.text:SetFont(pfUI.font_default, pfUI_config.global.font_size, "OUTLINE")
         frame.input.text:SetText("OK")
         pfUI.api.SkinButton(frame.input)
       end
 
-      -- increase size and zoom back due to blizzard backdrop reasons...
       if frame.input and pfUI.api.emulated then
         frame.input:SetWidth(frame.input:GetWidth()/.6)
         frame.input:SetHeight(frame.input:GetHeight()/.6)
@@ -408,50 +656,63 @@ function pfQuestConfig:CreateConfigEntries(config)
         end
       end
 
-      count = count + 1
+      configframes[entryData] = frame
+      spacing = 8
+      category.totalHeight = category.totalHeight + rowHeight + spacing
     end
+
+    category.totalHeight = category.totalHeight + 10
+    category.totalHeight = math_max(category.totalHeight, (self.content and self.content:GetHeight() or 0) - 40)
+    container:SetHeight(category.totalHeight)
   end
 
-  -- update sizes / positions
-  width = maxtext + 100
-  local column, row = 1, 0
-
-  for _, data in pairs(config) do
-    if data.type then
-      -- empty line for headers, next column for > 20 entries
-      row = row + ( data.type == "header" and row > 1 and 2 or 1 )
-      if row > 22 and data.type == "header" then
-        column, row = column + 1, 1
-      end
-
-      -- update max size values
-      maxw, maxh = max(maxw, column), max(maxh, row)
-
-      -- align frames to sizings
-      local spacer = (column-1)*20
-      local x, y = (column-1)*width, -(row-1)*height
-      local frame = configframes[data.text]
-      frame:SetWidth(width)
-      frame:SetHeight(height)
-      frame:SetPoint("TOPLEFT", pfQuestConfig, "TOPLEFT", x + spacer + 10, y - 40)
-    end
+  if self.categoryOrder[1] then
+    self:ShowCategory(self.categoryOrder[1])
   end
-
-  local spacer = (maxw-1)*20
-  pfQuestConfig:SetWidth(maxw*width + spacer + 20)
-  pfQuestConfig:SetHeight(maxh*height + 100)
 end
 
 function pfQuestConfig:UpdateConfigEntries()
-  for _, data in pairs(pfQuest_defconfig) do
-    if data.type and configframes[data.text] then
+  for _, data in ipairs(pfQuest_defconfig) do
+    if data.type and configframes[data] and configframes[data].input then
       if data.type == "checkbox" then
-        configframes[data.text].input:SetChecked((pfQuest_config[data.config] == "1" and true or nil))
+        configframes[data].input:SetChecked((pfQuest_config[data.config] == "1" and true or nil))
       elseif data.type == "text" then
-        configframes[data.text].input:SetText(pfQuest_config[data.config])
+        configframes[data].input:SetText(pfQuest_config[data.config])
       end
     end
   end
+end
+
+function pfQuestConfig:ShowCategory(name)
+  if not self.categories or not self.categories[name] then return end
+  if not self.scroll or not self.scrollContent then return end
+
+  for _, categoryName in ipairs(self.categoryOrder) do
+    local category = self.categories[categoryName]
+    if category and category.frame then
+      if categoryName == name then
+        category.frame:Show()
+        self.scrollContent:SetHeight(category.totalHeight)
+        if ScrollFrame_UpdateScrollChildRect then
+          ScrollFrame_UpdateScrollChildRect(self.scroll)
+        end
+        self.scroll:SetVerticalScroll(0)
+      else
+        category.frame:Hide()
+      end
+    end
+
+    local button = category and category.button
+    if button and button.text then
+      if categoryName == name then
+        button.text:SetTextColor(.3, 1, .8)
+      else
+        button.text:SetTextColor(1, 1, 1)
+      end
+    end
+  end
+
+  self.activeCategory = name
 end
 
 do -- welcome/init popup dialog

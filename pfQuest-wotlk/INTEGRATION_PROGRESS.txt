@@ -1,0 +1,112 @@
+pfQuest × Questie Integration Progress Notes
+===========================================
+
+Last updated: 2025-11-11
+
+Scope
+-----
+This file captures the current state of the Questie-into-pfQuest migration so the work can
+be resumed on another machine or Cursor session. It lists merged features, configuration
+changes, new modules, and any outstanding follow-up tasks.
+
+1. Ace3 / Questie Infrastructure
+   - Bundled Ace3 libraries and set up shims (`compat/ace.lua`) plus a QuestieLoader bridge
+     (`compat/questie-loader.lua`) so Questie-style modules can be mounted gradually.
+   - Added Questie core scaffolding: `questie/core.lua`, `questie/setup.lua`, queue
+     synchronization hooks (auto-accept/turn-in, tracker, tooltips).
+
+2. Auto Questing
+   - Ported ElvUI-style auto accept/turn-in into `questie/auto/core.lua`.
+   - Syncs pfQuest config toggles (`autoaccept`, `autocomplete`, `autoacceptdailyonly`,
+     `autoexclusions`) with Questie state. Uses persistent `pfQuest_config` as the source of truth.
+   - Handles daily-only mode, exclusion list, modifier overrides, and zero-choice turn-ins.
+
+3. Questie Tracker
+   - Replaced the pfQuest tracker with Questie’s tracker UI (`questie/tracker/`).
+   - Added default-tracker suppression, resize handle, quest-level display, and quest log
+     integration.
+   - Implemented config wiring: “Enable Quest Tracker” toggles the Questie tracker and
+     disables Blizzard’s WatchFrame.
+   - Integrated `QuestieFocus`—left-click on a tracker quest focuses it, fading non-target pins.
+
+4. Tooltip System
+   - Added Ace-based Questie tooltip modules (`questie/tooltips/*`), supplying unit, item, map
+     node, and ItemRef tooltip content.
+   - `questie/tooltips/bridge.lua` maps pfQuest metadata into Questie-style entries, including:
+     • Quest title headers, objective progress, quest/required levels
+     • XP / coin rewards (if present), drop rate %, vendor counts
+     • Optional Quest ID lines when `showids` is enabled
+   - Map tooltips (`map.lua`) now call `QuestieTooltipHandler:HandleNode`, so world/minimap
+     hovers show Questie’s objective lines alongside pfQuest text.
+
+5. Quest Focus Feature
+   - New module `questie/focus.lua` persists a focused quest across sessions (`focusQuestId`).
+   - Adds config toggles:
+       • “Enable Quest Focus” — enables clicking to focus quests.
+       • “Fade Non-Focused Quest Icons” — dims other map/minimap icons when focus is active.
+       • “Dim Cluster Nodes While Focused” — keeps aggregated cluster pins bright when disabled.
+       • “Highlight Focused Quest Icons” — adds a soft glow and size bump to focused map/minimap pins.
+       • “Share Quest Focus With Party” — broadcasts local focus state to grouped players via Questie comms.
+       • “Show Party Focus Highlights” — renders remote party focus with a teal glow when no local focus is active.
+   - Left-click a tracker entry to focus; right-click to clear. Focus status survives reload.
+
+6. Tracker QoL / Anchors
+   - Config toggles introduced:
+       • `stickydurability` — anchors the durability alert frame to the tracker when alerts exist.
+       • `stickyvoiceover` — aligns VoiceOver’s SoundQueue UI near the tracker (when addon loaded).
+       • `trackerfade` — fades tracker background, collapse button, and resizer when idle.
+   - Resizing/moving tracker keeps anchors updated; defaults restored on disable.
+   - Fade polish: tracker now exposes `QuestieTracker:RegisterFadeTarget(frame, opts)` so quest item buttons
+     (and future controls) transparently dim and restore with hover/active states.
+
+7. Config Additions (`config.lua`)
+   - Existing toggles now drive both pfQuest and Questie modules via `onupdate` callbacks, keeping
+     states synchronized (`auto*`, tracker enable, focus/fade, sticky frames).
+   - Config window rebuilt into a two-pane ElvUI-style layout; headers become sidebar sections and
+     options render in a scrollable content area. Third-party extensions (e.g., bronzebeard announce)
+     should call `pfQuestConfig:CreateConfigEntries(pfQuest_defconfig)` after mutating the table to
+     rebuild the view instead of iterating `pfQuestConfig<N>` frames.
+
+8. Files Added / Updated (non-exhaustive)
+   - TOC: `pfQuest-wotlk.toc` (Questie libs, tracker, tooltip modules).
+   - XML loader: `init/addon.xml` to include new modules in load order.
+   - New directories: `questie/auto`, `questie/tooltips`, `questie/tracker`, `questie/focus.lua`.
+   - Modified:
+       • `quest.lua` — quest log updates notify tracker & focus module, reset tooltips.
+       • `map.lua` — tooltip integration, node alpha adjustments for focus.
+       • `config.lua` — new toggles, onupdate bridges.
+
+9. Party Progress Sync
+   - Introduced lightweight comms bridge (`questie/party/sync.lua`) leveraging AceComm to
+     broadcast quest objective progress to grouped players.
+   - Tooltip handler now appends a "Party Progress" block when party members share quest
+     updates; entries expire automatically if teammates go offline or leave the group.
+   - Config toggle `tooltippartyprogress` (Questing section) controls the feature and
+     updates dynamically without reload.
+   - Added `disablepartyells` toggle plus throttled `/yell` fallback so solo players still
+     emit minimal progress updates outside capital/battleground zones.
+   - Implemented roster handshake: pfQuest clients request and broadcast their current objectives
+     whenever the party roster changes or the feature is re-enabled, keeping group members in sync.
+
+10. Outstanding / Next Steps
+   - Wire tracker quest item buttons (and future widgets) into `QuestieTracker:RegisterFadeTarget`
+     so they participate in idle fade behaviour.
+   - Questie party comms: handshake for pfQuest clients is done—next investigate QuestieComms
+     compatibility so mixed pfQuest/Questie groups share progress seamlessly.
+   - Audit focus UX for additional hotkeys (e.g., minimap clear binding); decide whether to ship
+     a keybinding or slash command for quickly clearing focus.
+   - Review pfQuest-bronzebeard config extender now that the config pane is two-column; ensure it
+     surfaces under the new sidebar and stop relying on `pfQuestConfig<N>` globals.
+
+11. Testing Notes
+   - Manual verification only. No automated tests configured.
+   - Recommended: reload UI after copying to ensure tracker/focus modules capture default
+     anchor positions on the new machine.
+   - Party sync: group two clients, enable `tooltippartyprogress`, advance an objective, and confirm tooltip
+     lines update on the remote client; toggle `disablepartyells` to verify yell fallback stops when desired.
+   - Focus sharing: enable `focuspartyshare` and `focuspartyreceive` on grouped clients, focus a quest on one,
+     and confirm teal glow + dimming appears on the other; clear focus and ensure highlights reset.
+
+How to Resume
+-------------
+1. Copy the entire `

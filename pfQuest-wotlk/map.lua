@@ -11,9 +11,9 @@ local minimapbreakers = {
 
 local compatnamefake = CreateFrame("Frame")
 compatnamefake:RegisterEvent("PLAYER_ENTERING_WORLD")
-compatnamefake:SetScript("OnEvent", function()
+compatnamefake:SetScript("OnEvent", function(self)
   -- only run once on login
-  this:UnregisterAllEvents()
+  self:UnregisterAllEvents()
 
   -- scan through all addons to identify button collectors
   for i=1, GetNumAddOns() do
@@ -28,8 +28,8 @@ end)
 -- this loop puts it into one place and only updates it every .2 seconds
 -- it also only updates the key if the mouse is over a relevant frame
 local controlkey = CreateFrame("Frame", "pfQuestControlKey", UIParent)
-controlkey:SetScript("OnUpdate", function()
-  if ( this.throttle or .2) > GetTime() then return else this.throttle = GetTime() + .2 end
+controlkey:SetScript("OnUpdate", function(self)
+  if ( self.throttle or .2) > GetTime() then return else self.throttle = GetTime() + .2 end
   if WorldMapFrame:IsShown() and MouseIsOver(WorldMapFrame) or MouseIsOver(pfMap.drawlayer) then
     controlkey.pressed = IsControlKeyDown()
   end
@@ -175,6 +175,26 @@ local function NodeAnimate(self, zoom, alpha, fps)
   return change
 end
 
+local function EnsureFocusGlow(frame)
+  if not frame or frame.focusGlow then
+    return
+  end
+
+  local basePath = pfQuestConfig and pfQuestConfig.path or "Interface\\AddOns\\pfQuest-wotlk"
+  local texturePath = basePath .. "\\img\\track"
+  local glow = frame:CreateTexture(nil, "ARTWORK")
+  glow:SetTexture(texturePath)
+  glow:SetBlendMode("ADD")
+  glow:SetVertexColor(1, 0.85, 0.2, 0.75)
+  glow:SetPoint("CENTER", frame, "CENTER", 0, 0)
+  local baseSize = frame:GetWidth() or frame.defsize or 16
+  glow:SetWidth(baseSize + 6)
+  glow:SetHeight(baseSize + 6)
+  glow:Hide()
+
+  frame.focusGlow = glow
+end
+
 -- put player position above everything on worldmap
 for k, v in pairs({WorldMapFrame:GetChildren()}) do
   if v:IsObjectType("Model") and not v:GetName() then
@@ -193,6 +213,8 @@ pfMap.pins = {}
 pfMap.mpins = {}
 pfMap.drawlayer = Minimap
 pfMap.unifiedcache = unifiedcache
+
+pfMap.EnsureFocusGlow = EnsureFocusGlow
 
 pfMap.minimap_indoor = minimap_indoor
 pfMap.minimap_zoom = minimap_zoom
@@ -391,6 +413,13 @@ function pfMap:ShowTooltip(meta, tooltip)
     end
   end
 
+  if QuestieLoader and QuestieLoader.ImportModule then
+    local tooltipHandler = QuestieLoader:ImportModule("QuestieTooltipHandler")
+    if tooltipHandler and tooltipHandler.HandleNode then
+      tooltipHandler:HandleNode(meta, tooltip)
+    end
+  end
+
   tooltip:Show()
 end
 
@@ -550,6 +579,13 @@ function pfMap:AddNode(meta)
     pfMap.tooltips[spawn][title][map] = pfMap.tooltips[spawn][title][map] or similar_nodes[sindex]
   end
 
+  if QuestieLoader and QuestieLoader.ImportModule then
+    local bridge = QuestieLoader:ImportModule("pfQuestTooltipBridge")
+    if bridge and bridge.RegisterMeta then
+      bridge:RegisterMeta(meta)
+    end
+  end
+
   pfMap.queue_update = GetTime()
 end
 
@@ -605,49 +641,55 @@ function pfMap:DeleteNode(addon, title)
 end
 
 function pfMap:NodeClick()
+  local node = self or this
+  if not node then return end
+
   if IsShiftKeyDown() then
-    if this.questid and this.texture and this.layer < 5 then
+    if node.questid and node.texture and node.layer < 5 then
       -- mark questnode as done
-      pfQuest_history[this.questid] = { time(), UnitLevel("player") }
+      pfQuest_history[node.questid] = { time(), UnitLevel("player") }
     end
 
-    if this.node and this.title and this.node[this.title] then
+    if node.node and node.title and node.node[node.title] then
       -- delete node from map
-      pfMap:DeleteNode(this.node[this.title].addon, this.title)
+      pfMap:DeleteNode(node.node[node.title].addon, node.title)
     end
 
     pfQuest.updateQuestGivers = true
-  elseif this.texture and pfQuest.route and
-   (( pfQuest_config["routecluster"] == "1" and this.layer >= 9 ) or
-    ( pfQuest_config["routeender"] == "1" and this.layer == 4) or
-    ( pfQuest_config["routestarter"] == "1" and this.layer == 1) or
-    ( pfQuest_config["routestarter"] == "1" and this.layer == 2))
+  elseif node.texture and pfQuest.route and
+   (( pfQuest_config["routecluster"] == "1" and node.layer >= 9 ) or
+    ( pfQuest_config["routeender"] == "1" and node.layer == 4) or
+    ( pfQuest_config["routestarter"] == "1" and node.layer == 1) or
+    ( pfQuest_config["routestarter"] == "1" and node.layer == 2))
   then
     -- set as arrow target priority
-    pfQuest.route.SetTarget((not pfQuest.route.IsTarget(this) and this))
+    pfQuest.route.SetTarget((not pfQuest.route.IsTarget(node) and node))
     pfMap.queue_update = GetTime()
   else
     -- switch color
-    pfQuest_colors[this.color] = { str2rgb(this.color .. GetTime()) }
+    pfQuest_colors[node.color] = { str2rgb(node.color .. GetTime()) }
     pfMap.queue_update = GetTime()
   end
 end
 
 function pfMap:NodeEnter()
+  local node = self or this
+  if not node then return end
+
   -- wotlk: need to disable blop tooltips first
   if compat.client >= 30300 then
     WorldMapPOIFrame.allowBlobTooltip = false
   end
 
-  local tooltip = this:GetParent() == WorldMapButton and WorldMapTooltip or GameTooltip
-  tooltip:SetOwner(this, "ANCHOR_LEFT")
-  this.spawn = this.spawn or UNKNOWN
-  tooltip:SetText(this.spawn..(pfQuest_config.showids == "1" and " |cffcccccc("..this.spawnid..")|r" or ""), .3, 1, .8)
-  tooltip:AddDoubleLine(pfQuest_Loc["Level"] .. ":", (this.level or UNKNOWN), .8,.8,.8, 1,1,1)
-  tooltip:AddDoubleLine(pfQuest_Loc["Type"] .. ":", (this.spawntype or UNKNOWN), .8,.8,.8, 1,1,1)
-  tooltip:AddDoubleLine(pfQuest_Loc["Respawn"] .. ":", (this.respawn or UNKNOWN), .8,.8,.8, 1,1,1)
+  local tooltip = node:GetParent() == WorldMapButton and WorldMapTooltip or GameTooltip
+  tooltip:SetOwner(node, "ANCHOR_LEFT")
+  node.spawn = node.spawn or UNKNOWN
+  tooltip:SetText(node.spawn..(pfQuest_config.showids == "1" and " |cffcccccc("..node.spawnid..")|r" or ""), .3, 1, .8)
+  tooltip:AddDoubleLine(pfQuest_Loc["Level"] .. ":", (node.level or UNKNOWN), .8,.8,.8, 1,1,1)
+  tooltip:AddDoubleLine(pfQuest_Loc["Type"] .. ":", (node.spawntype or UNKNOWN), .8,.8,.8, 1,1,1)
+  tooltip:AddDoubleLine(pfQuest_Loc["Respawn"] .. ":", (node.respawn or UNKNOWN), .8,.8,.8, 1,1,1)
 
-  for title, meta in pairs(this.node) do
+  for title, meta in pairs(node.node) do
     pfMap:ShowTooltip(meta, tooltip)
   end
 
@@ -655,13 +697,13 @@ function pfMap:NodeEnter()
   if pfQuest_config["tooltiphelp"] == "1" then
     local text = pfQuest_Loc["Use <Shift>-Click To Remove Nodes"]
 
-    if this.cluster then
+    if node.cluster then
       text = pfQuest_Loc["Hold <Ctrl> To Hide Cluster"]
     elseif tooltip == GameTooltip then
       text = pfQuest_Loc["Hold <Ctrl> To Hide Minimap Nodes"]
-    elseif not this.texture then
+    elseif not node.texture then
       text = pfQuest_Loc["Click Node To Change Color"]
-    elseif this.questid and this.texture and this.layer < 5 then
+    elseif node.questid and node.texture and node.layer < 5 then
       text = pfQuest_Loc["Use <Shift>-Click To Mark Quest As Done"]
     end
 
@@ -669,17 +711,19 @@ function pfMap:NodeEnter()
     tooltip:AddLine(text, .6, .6, .6)
     tooltip:Show()
   end
-
-  pfMap.highlight = pfQuest_config["mouseover"] == "1" and this.title
+  pfMap.highlight = pfQuest_config["mouseover"] == "1" and node.title
 end
 
 function pfMap:NodeLeave()
+  local node = self or this
+  if not node then return end
+
   -- wotlk: re-enable blop tooltips
   if compat.client >= 30300 then
     WorldMapPOIFrame.allowBlobTooltip = true
   end
 
-  local tooltip = this:GetParent() == WorldMapButton and WorldMapTooltip or GameTooltip
+  local tooltip = node:GetParent() == WorldMapButton and WorldMapTooltip or GameTooltip
   tooltip:Hide()
   pfMap.highlight = nil
 end
@@ -715,6 +759,8 @@ function pfMap:BuildNode(name, parent)
   f.hl:SetPoint("TOPLEFT", f, "TOPLEFT", -5, 5)
   f.hl:SetWidth(12)
   f.hl:SetHeight(12)
+
+  EnsureFocusGlow(f)
   return f
 end
 
@@ -850,6 +896,13 @@ function pfMap:UpdateNode(frame, node, color, obj, distance)
     frame:SetHeight(frame.defsize)
   end
 
+  local focusModule = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("QuestieFocus")
+  if focusModule and focusModule.ApplyFrameStyle then
+    focusModule:ApplyFrameStyle(frame)
+  else
+    frame:SetAlpha(1)
+  end
+
   frame.node = node
 end
 
@@ -923,6 +976,8 @@ end
 
 local coord_cache = {}
 function pfMap:UpdateMinimap()
+  local map = self or pfMap
+
   -- check for disabled minimap nodes
   if pfQuest_config["minimapnodes"] == "0" then
     return
@@ -930,7 +985,7 @@ function pfMap:UpdateMinimap()
 
   -- hide all minimap nodes while shift is pressed
   if controlkey.pressed and MouseIsOver(pfMap.drawlayer) then
-    this.xPlayer = nil
+    map.xPlayer = nil
 
     for id, pin in pairs(pfMap.mpins) do
       pin:Hide()
@@ -950,18 +1005,11 @@ function pfMap:UpdateMinimap()
   xPlayer, yPlayer = xPlayer * 100, yPlayer * 100
 
   -- force refresh every second even without changed values, otherwise skip
-  -- Use tolerance-based comparison to handle floating point precision issues
-  -- Since positions are multiplied by 100, use a small threshold (0.1 = 0.001 in original coords)
-  local positionThreshold = 0.1
-  local xChanged = not this.xPlayer or abs((this.xPlayer or 0) - xPlayer) > positionThreshold
-  local yChanged = not this.yPlayer or abs((this.yPlayer or 0) - yPlayer) > positionThreshold
-  local zoomChanged = (this.mZoom or -1) ~= mZoom
-  
-  if not xChanged and not yChanged and not zoomChanged then
-    if ( this.tick or 1) > GetTime() then return else this.tick = GetTime() + 1 end
+  if map.xPlayer == xPlayer and map.yPlayer == yPlayer and map.mZoom == mZoom then
+    if ( map.tick or 1) > GetTime() then return else map.tick = GetTime() + 1 end
   end
 
-  this.xPlayer, this.yPlayer, this.mZoom = xPlayer, yPlayer, mZoom
+  map.xPlayer, map.yPlayer, map.mZoom = xPlayer, yPlayer, mZoom
   local color = pfQuest_config["spawncolors"] == "1" and "spawn" or "title"
   local mapID = pfMap:GetMapIDByName(GetRealZoneText())
   local mapZoom = minimap_zoom[minimap_indoor()][mZoom]
@@ -1067,36 +1115,75 @@ pfMap:SetScript("OnEvent", function()
 end)
 
 local hlstate, shiftstate, transition, hidecluster, fps, resetmap
-pfMap:SetScript("OnUpdate", function()
+pfMap:SetScript("OnUpdate", function(self)
   -- handle highlights and animations
   if pfMap.queue_update or transition or pfMap.highlight ~= hlstate or shiftstate ~= hidecluster then
     hlstate, shiftstate, transition = pfMap.highlight, hidecluster, nil
     fps = math.max(.2, GetFramerate() / 30)
 
-    for frame, data in pairs(pfMap.highlightdb) do
-      local highlight = pfMap.highlightdb[frame][pfMap.highlight] and true or nil
+    local focusModule = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("QuestieFocus")
+    local focusActive = focusModule and focusModule:IsActive()
+    local focusHighlightEnabled = focusActive and focusModule:ShouldHighlight() or false
 
+    for frame, data in pairs(pfMap.highlightdb) do
+      local highlight = pfMap.highlightdb[frame][pfMap.highlight] and true or false
+
+      local desiredSize = frame.defsize
+      if highlight and frame.texture then
+        desiredSize = (frame.defsize or 16) + 4
+      end
+
+      local desiredAlpha
       if hidecluster and frame.cluster then
-        -- hide clusters
-        transition = frame:Animate(frame.defsize, 0, fps) or transition
+        desiredAlpha = 0
       elseif highlight then
-        -- zoom node
-        transition = frame:Animate((frame.texture and frame.defsize + 4 or frame.defsize), 1, fps) or transition
-      elseif not highlight and pfMap.highlight then
-        -- fade node
-        transition = frame:Animate(frame.defsize, tonumber(pfQuest_config["nodefade"]) or 0.3, fps) or transition
+        desiredAlpha = 1
+      elseif pfMap.highlight and not highlight then
+        desiredAlpha = tonumber(pfQuest_config["nodefade"]) or 0.3
       elseif frame.texture or frame.cluster then
-        -- defaults for textured nodes
-        transition = frame:Animate(frame.defsize, 1, fps) or transition
+        desiredAlpha = 1
       else
-        -- defaults
-        transition = frame:Animate(frame.defsize, frame.defalpha, fps) or transition
+        desiredAlpha = frame.defalpha or 1
+      end
+
+      local showGlow = false
+      local isFocusNode = false
+
+      if focusActive and not (hidecluster and frame.cluster) then
+        focusModule:EnsureFocusGlow(frame)
+        desiredAlpha, showGlow, isFocusNode = focusModule:AdjustFrameAlpha(frame, desiredAlpha, {
+          highlight = highlight,
+          cluster = frame.cluster,
+        })
+        if isFocusNode and focusHighlightEnabled then
+          desiredSize = math.max(desiredSize or (frame.defsize or 16), (frame.defsize or 16) + 4)
+        end
+      else
+        if frame.focusGlow then
+          frame.focusGlow:Hide()
+        end
+      end
+
+      desiredAlpha = math.min(math.max(desiredAlpha or 0, 0), 1)
+      desiredSize = desiredSize or frame.defsize or 16
+
+      transition = frame:Animate(desiredSize, desiredAlpha, fps) or transition
+
+      if frame.focusGlow then
+        if showGlow and desiredAlpha > 0 then
+          local glowSize = (frame:GetWidth() or frame.defsize or 16) + 6
+          frame.focusGlow:SetWidth(glowSize)
+          frame.focusGlow:SetHeight(glowSize)
+          frame.focusGlow:Show()
+        else
+          frame.focusGlow:Hide()
+        end
       end
     end
   end
 
   -- limit all map updates to once per .05 seconds
-  if ( this.throttle or .2) > GetTime() then return else this.throttle = GetTime() + .05 end
+  if ( self.throttle or .2) > GetTime() then return else self.throttle = GetTime() + .05 end
 
   -- process node updates if required
   if pfMap.queue_update and pfMap.queue_update + .25 < GetTime() then
@@ -1124,31 +1211,67 @@ pfMap:SetScript("OnUpdate", function()
 end)
 
 -- only hook for 3.3.5
-if compat.client >= 30300 then
+if compat.client >= 30300 and type(hooksecurefunc) == "function" then
   -- Initialize a variable to track the previous clicked title
   local previousTitle = nil
-  -- Highlight Map Quest Log Selection Nodes
-  local pfHookWorldMapQuestFrame_OnMouseUp = WorldMapQuestFrame_OnMouseUp
-  WorldMapQuestFrame_OnMouseUp = function(self)
-    pfHookWorldMapQuestFrame_OnMouseUp(self)
-    -- Keep Blizzard's default behavior for showing quest objectives
-    if not IsShiftKeyDown() then
-      pfMap.highlight = nil
-      local questLogIndex = GetQuestLogSelection()
-      local title = GetQuestLogTitle(questLogIndex)
+  local deferredBlobReset = false
 
-      if title then
-        if previousTitle == title then
-          -- Reset the highlight if the same title is clicked again
-          pfMap.highlight = nil
-          previousTitle = nil
-        else
-          -- Logic for highlighting nodes associated with the clicked quest
-          pfMap.highlight = title
-          previousTitle = title
-          pfMap.queue_update = GetTime()
-        end
-      end
+  local function ResetQuestBlobs()
+    if WorldMapBlobFrame and WorldMapBlobFrame.Hide then
+      WorldMapBlobFrame:Hide()
+    end
+
+    if type(WorldMapFrame_ClearQuestPOIs) == "function" then
+      WorldMapFrame_ClearQuestPOIs()
     end
   end
+
+  local function TryResetQuestBlobs()
+    if InCombatLockdown and InCombatLockdown() then
+      deferredBlobReset = true
+      return
+    end
+
+    deferredBlobReset = false
+    ResetQuestBlobs()
+  end
+
+  local combatWatcher = CreateFrame("Frame")
+  combatWatcher:RegisterEvent("PLAYER_REGEN_ENABLED")
+  combatWatcher:SetScript("OnEvent", function()
+    if deferredBlobReset then
+      TryResetQuestBlobs()
+    end
+  end)
+
+  -- Highlight Map Quest Log Selection Nodes without overriding the secure function
+  hooksecurefunc("WorldMapQuestFrame_OnMouseUp", function(self)
+    TryResetQuestBlobs()
+
+    if IsShiftKeyDown() then return end
+
+    local questLogIndex = GetQuestLogSelection()
+    local title = questLogIndex and GetQuestLogTitle(questLogIndex) or nil
+
+    if not title then
+      if pfMap.highlight then
+        pfMap.highlight = nil
+        previousTitle = nil
+        pfMap.queue_update = GetTime()
+      end
+      return
+    end
+
+    if previousTitle == title then
+      -- Reset the highlight if the same title is clicked again
+      pfMap.highlight = nil
+      previousTitle = nil
+    else
+      -- Highlight nodes associated with the clicked quest
+      pfMap.highlight = title
+      previousTitle = title
+    end
+
+    pfMap.queue_update = GetTime()
+  end)
 end

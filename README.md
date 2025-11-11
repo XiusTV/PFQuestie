@@ -1,33 +1,29 @@
-**Other WotLK 3.3.5 Addons by XiusTV:**
+# PFQuestie - Enhanced Quest Suite for WotLK 3.3.5
 
-* [ElvUI VibeUI](https://github.com/XiusTV/Elvui-VibeUI) - Modern ElvUI configuration
-* [Modern TSM](https://github.com/XiusTV/Modern-TSM-335) - Performance-optimized TradeSkillMaster
-* [PFQuestie](https://github.com/XiusTV/PFQuestie) - Rework of Pfquest and Questie integrated into one coming soon
-
-Support: [Buy Me A Coffee](https://buymeacoffee.com/xius)
-
-Interact with me on discord @ https://discord.gg/neEqeFFUsE for help related to all my addons!
-
----
-
-# PFQuest for WotLK 3.3.5
-
-**Unified quest database suite for World of Warcraft 3.3.5 with automated quest capture and live database building.**
+**Unified quest database suite for World of Warcraft 3.3.5 with Questie integration, automated quest capture, and party synchronization.**
 
 ## About This Repository
 
 This repository contains **two complementary quest addons** maintained exclusively by XiusTV:
 
-1. **pfQuest-wotlk** - Core quest database for WotLK 3.3.5
+1. **pfQuest-wotlk** - Core quest database for WotLK 3.3.5 with Questie integration
 2. **pfQuest-bronzebeard** - Ascension Bronzebeard realm-specific extension
 
-Both addons feature advanced quest capture systems that learn new quests as you play, making them permanent for all characters.
+Both addons feature advanced quest capture systems, Questie-style tracker and tooltips, party progress synchronization, and automated database building.
 
 **⚠️ This is an independent project.** The original pfQuest developer (Shagu) is not involved with these enhanced versions.
 
 ---
 
 ## 🚀 Key Features
+
+### Questie Integration
+
+* **Questie Tracker** - Modern quest tracker UI with resize handle and quest level display
+* **Questie Tooltips** - Enhanced tooltips showing quest objectives, progress, and party member progress
+* **Quest Focus** - Click tracker quests to focus them, dimming non-focused map icons
+* **Auto Questing** - Auto-accept and auto-turn-in quests with daily-only mode and exclusion lists
+* **Party Progress Sync** - See party members' quest progress in tooltips (real-time synchronization)
 
 ### Quest Capture System
 
@@ -55,6 +51,7 @@ Both addons feature advanced quest capture systems that learn new quests as you 
 * **Quest links** - Shift-click quests to link in chat
 * **Arrow navigation** - HUD arrow pointing to active objectives
 * **Minimap integration** - Quest nodes on minimap
+* **ElvUI-style config panel** - Two-pane configuration interface with sidebar navigation
 
 ---
 
@@ -111,6 +108,12 @@ Both addons feature advanced quest capture systems that learn new quests as you 
 * `/pfquest capture clear` - Clear all captured quest data
 * `/pfquest capture status` - Show capture system status
 
+### Party Sync Commands
+
+* `/pfqps status` - Show party sync status
+* `/pfqps debug` - Toggle debug mode
+* `/pfqps sync` - Manually trigger full sync with party members
+
 ---
 
 ## 🎯 How Quest Capture Works
@@ -156,6 +159,13 @@ Captured data is saved per-character but can be shared:
 * **Clean** button - Remove all pfQuest nodes from map
 * **Reset** button - Restore default visibility settings
 
+### Questie Tracker
+
+* **Left-click** quest - Focus quest (dim other map icons)
+* **Right-click** quest - Clear focus
+* **Resize handle** - Drag bottom-right corner to resize tracker
+* **Quest level display** - Shows quest level next to quest name
+
 ### Minimap Button
 
 * **Click** - Open database browser
@@ -165,6 +175,12 @@ Captured data is saved per-character but can be shared:
 
 * **Shift-drag** - Move arrow position
 * Automatically points to active quest objectives
+
+### Configuration Panel
+
+* **Sidebar navigation** - Click category names on the left
+* **Scrollable content** - Options appear on the right
+* **Real-time updates** - Changes apply immediately (no reload needed for most settings)
 
 ---
 
@@ -207,6 +223,22 @@ Change mode via dropdown in top-right of world map.
 
 ---
 
+## 🎯 Party Progress Synchronization
+
+See your party members' quest progress in real-time:
+
+* **Automatic sync** - Progress updates sent within 1 second of changes
+* **Tooltip display** - Hover over quest NPCs to see party progress
+* **Quest ID matching** - Works even when NPC IDs differ between clients
+* **3-minute TTL** - Remote progress expires after 3 minutes
+* **Yell fallback** - Works outside groups using `/yell` channel
+
+**Configuration:**
+* Enable "Party Progress in Tooltips" in Questing section
+* Optionally disable `/yell` fallback for solo players
+
+---
+
 ## 🌍 Supported Content
 
 ### pfQuest-wotlk Database
@@ -242,6 +274,8 @@ Change mode via dropdown in top-right of world map.
 2. Use database browser to find quest starts
 3. Shift-click quest givers on map to mark as done
 4. Use `/db clean` to clear map when needed
+5. Focus quests in tracker to highlight objectives
+6. Enable party progress to see group members' advancement
 
 ### Contributing Quest Data
 
@@ -258,9 +292,11 @@ Change mode via dropdown in top-right of world map.
 
 * **Developed and maintained exclusively by XiusTV**
 * Quest capture system implementation
+* Questie integration (tracker, tooltips, auto-questing, focus, party sync)
 * Performance optimizations
 * WotLK 3.3.5 and Bronzebeard-specific enhancements
 * Database expansion through community captures
+* ElvUI-style configuration panel
 
 ### Original pfQuest Framework
 
@@ -268,29 +304,19 @@ Change mode via dropdown in top-right of world map.
 * Core database and rendering engine
 * VMaNGOS and CMaNGOS database projects for quest data
 
-This project builds on the pfQuest framework by Shagu. All capture systems, optimizations, and WotLK/Bronzebeard-specific features are original work by XiusTV.
+### Questie Integration
+
+* Based on Questie addon concepts and UI patterns
+* Party synchronization inspired by Questie's party sync system
+* Tooltip system adapted from Questie's tooltip modules
+
+This project builds on the pfQuest framework by Shagu. All capture systems, Questie integrations, optimizations, and WotLK/Bronzebeard-specific features are original work by XiusTV.
 
 ---
 
 ## 📜 License
 
 This addon follows the same license as the original pfQuest project.
-
----
-
-## 🎨 Screenshots & Features
-
-### Database Browser
-Browse quests, items, NPCs, and objects with an intuitive interface
-
-### Map Integration
-Quest objectives, spawn points, and resources displayed on world map and minimap
-
-### Quest Capture UI
-Real-time monitoring of captured quest data with detailed statistics
-
-### HUD Arrow
-Visual indicator pointing to your active quest objectives
 
 ---
 
@@ -323,6 +349,13 @@ This is normal - pfQuest loads entire database on startup but doesn't grow over 
 2. Use merger tool to integrate captures into database
 3. Reload UI (`/reload`) after merger completes
 
+### Party Progress Not Showing
+
+1. Enable "Party Progress in Tooltips" in Questing section
+2. Ensure both clients have the feature enabled
+3. Check `/pfqps status` to verify sync is working
+4. Try `/pfqps sync` to manually trigger sync
+
 ### Performance Issues
 
 1. Use slim language downloads instead of full packages
@@ -338,6 +371,7 @@ This is normal - pfQuest loads entire database on startup but doesn't grow over 
 * **Enhanced Capture UI** - More detailed statistics and filtering
 * **Automatic Updates** - Cloud-sync for quest captures
 * **Integration Tools** - Better export/import functionality
+* **Questie Comms Compatibility** - Seamless sync with Questie addon users
 
 ---
 
@@ -358,7 +392,6 @@ Every quest you complete helps expand the database for everyone!
 
 ---
 
-*Last Updated: November 6, 2025*  
+*Last Updated: December 2024*  
 *Maintainer: XiusTV*  
 *Based on pfQuest by Shagu*
-

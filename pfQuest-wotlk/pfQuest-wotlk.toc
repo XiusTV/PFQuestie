@@ -5,8 +5,29 @@
 ## Notes-ruRU: Облегченный помощник заданий и база данных
 ## Version: 7.0.1
 ## OptionalDeps: pfUI-wotlk
-## SavedVariables: pfQuest_questcache, pfQuest_CapturedQuests, pfQuest_InjectedData
-## SavedVariablesPerCharacter: pfQuest_config, pfBrowser_fav, pfQuest_history, pfQuest_colors, pfQuest_server, pfQuest_track, pfQuest_CaptureConfig
+## SavedVariables: pfQuest_questcache
+## SavedVariablesPerCharacter: pfQuest_config, pfBrowser_fav, pfQuest_history, pfQuest_colors, pfQuest_server, pfQuest_track
+
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\AceAddon-3.0\AceAddon-3.0.xml
+Libs\AceEvent-3.0\AceEvent-3.0.xml
+Libs\AceConsole-3.0\AceConsole-3.0.xml
+Libs\AceTimer-3.0\AceTimer-3.0.xml
+Libs\AceBucket-3.0\AceBucket-3.0.xml
+Libs\AceHook-3.0\AceHook-3.0.xml
+Libs\AceComm-3.0\AceComm-3.0.xml
+Libs\AceSerializer-3.0\AceSerializer-3.0.xml
+Libs\AceDB-3.0\AceDB-3.0.xml
+Libs\AceDBOptions-3.0\AceDBOptions-3.0.xml
+Libs\AceGUI-3.0\AceGUI-3.0.xml
+Libs\AceGUI-3.0-SharedMediaWidgets\widget.xml
+Libs\AceConfig-3.0\AceConfig-3.0.xml
+Libs\AceTab-3.0\AceTab-3.0.xml
+Libs\LibSharedMedia-3.0\lib.xml
+Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+Libs\LibDBIcon-1.0\lib.xml
+Libs\Ace3.lua
 
 init\data.xml
 init\enUS.xml
@@ -31,6 +52,3 @@ init\ruRU-tbc.xml
 init\ptBR-tbc.xml
 
 init\addon.xml
-
--- questcapture.lua
--- questcapture-ui.lua

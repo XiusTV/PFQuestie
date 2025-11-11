@@ -5,8 +5,7 @@
 ## Notes: A Bronzebeard DB extension for pfQuest
 ## Version: 2.18
 ## Dependencies: pfQuest-wotlk
-## SavedVariables: pfQuest_bronzebeardcount, pfQuest_CompletedQuestData, pfQuest_CapturedQuests_BB, pfQuest_InjectedData_BB
-## SavedVariablesPerCharacter: pfQuest_CaptureConfig_BB
+## SavedVariables: pfQuest_bronzebeardcount, pfQuest_CompletedQuestData
 
 init\data-bronzebeard.xml
 init\enUS-bronzebeard.xml
@@ -16,5 +15,3 @@ patchtable.lua
 pfQuest-bronzebeard.lua
 pfQuest-announce.lua
 pfQuest-worldmap.lua
-questcapture.lua
-questcapture-ui.lua

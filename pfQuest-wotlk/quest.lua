@@ -158,6 +158,19 @@ pfQuest:SetScript("OnUpdate", function()
 
     -- remove quest
     if entry[4] == "REMOVE" then
+      local tooltipBridge = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("pfQuestTooltipBridge")
+      if tooltipBridge and tooltipBridge.ResetQuest then
+        tooltipBridge:ResetQuest(entry[2])
+      end
+      local partySync = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("QuestiePartySync")
+      if partySync and partySync.OnQuestRemoved then
+        partySync:OnQuestRemoved(entry[2])
+      end
+      local focusModule = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("QuestieFocus")
+      if focusModule and focusModule.OnQuestRemoved then
+        focusModule:OnQuestRemoved(entry[2])
+      end
+
       pfQuest:Debug("|cffff5555Remove Quest: " .. entry[1] .. " (" .. entry[2] .. ")")
 
       -- write pfQuest.questlog history
@@ -183,6 +196,19 @@ pfQuest:SetScript("OnUpdate", function()
         pfQuest:Debug("|cff55ff55New Quest: " .. entry[1] .. " (" .. entry[2] .. ")")
       else
         pfQuest:Debug("|cffffff55Update Quest: " .. entry[1] .. " (" .. entry[2] .. ")")
+      end
+
+      local tooltipBridge = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("pfQuestTooltipBridge")
+      if tooltipBridge and tooltipBridge.ResetQuest then
+        tooltipBridge:ResetQuest(entry[2])
+      end
+      local partySync = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("QuestiePartySync")
+      if partySync and partySync.OnQuestAdded then
+        partySync:OnQuestAdded(entry[2])
+      end
+      local focusModule = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("QuestieFocus")
+      if focusModule and focusModule.IsQuestFocused and focusModule:IsQuestFocused(entry[2]) and focusModule.Apply then
+        focusModule:Apply()
       end
 
       -- update quest nodes
@@ -305,7 +331,12 @@ function pfQuest:UpdateQuestlog()
   for k, v in pairs(pfQuest.questlog_tmp) do
     pfQuest.questlog_tmp[k] = nil
   end
-
+  if QuestieLoader and QuestieLoader.ImportModule then
+    local tracker = QuestieLoader:ImportModule("QuestieTracker")
+    if tracker and tracker.started and tracker.Update then
+      tracker:Update()
+    end
+  end
   return change
 end
 

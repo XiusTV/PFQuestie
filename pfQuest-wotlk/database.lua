@@ -539,10 +539,6 @@ function pfDatabase:GetBitByClass(class)
   for bit, v in pairs(bitclasses) do
     if class == v then return bit end
   end
-  
-  -- return all class bits as fallback for unknown/custom classes
-  -- this allows quests to show for custom classes on private servers
-  return 1535 -- sum of all class bits (1+2+4+8+16+32+64+128+256+1024)
 end
 
 -- GetHexDifficultyColor

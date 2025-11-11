@@ -473,9 +473,13 @@ function pfDatabase:QuestFilter(id, plevel, pclass, prace)
   end
 
   -- hide non-available quests for your race
-  if quest["race"] and prace and not ( bit.band(quest["race"], prace) == prace ) then return end
+  if quest["race"] and prace and prace ~= 0 then
+    if bit.band(quest["race"], prace) ~= prace then return end
+  end
   -- hide non-available quests for your class
-  if quest["class"] and pclass and not ( bit.band(quest["class"], pclass) == pclass ) then return end
+  if quest["class"] and pclass and pclass ~= 0 then
+    if bit.band(quest["class"], pclass) ~= pclass then return end
+  end
   -- hide non-available quests for your profession
   if quest["skill"] then
     local playerSkillLevel = pfDatabase:GetPlayerSkill(quest["skill"])
@@ -1185,7 +1189,7 @@ end
 local originalNodeEnter = pfMap.NodeEnter
 pfMap.NodeEnter = function(self)
   if not self or not self.node then
-    if originalNodeEnter then originalNodeEnter() end
+    if originalNodeEnter then originalNodeEnter(self) end
     return
   end
 
@@ -1251,7 +1255,7 @@ pfMap.NodeEnter = function(self)
     pfMap.highlight = pfQuest_config["mouseover"] == "1" and self.title
   else
     if originalNodeEnter then
-      originalNodeEnter()
+      originalNodeEnter(self)
     end
   end
 end

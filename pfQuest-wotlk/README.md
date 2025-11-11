@@ -1,31 +1,11 @@
-# pfQuest Enhanced
+# pfQuest
 <img src="https://raw.githubusercontent.com/shagu/ShaguAddons/master/_img/pfQuest/mode.png" float="right" align="right" width="25%">
 
-**Enhanced version with automated quest capture system for WotLK 3.3.5**
-
-This is an addon for World of Warcraft Vanilla (1.12), The Burning Crusade (2.4.3), and Wrath of the Lich King (3.3.5). It helps players to find several ingame objects and quests. The addon reads questobjectives, parses them and uses its internal database to plot the found matches on the world- and minimap. It ships with a GUI to browse through all known objects.
-
-## 🌟 Enhanced Features
-
-This version includes an **automated quest capture system** that learns new quests as you play:
-
-### Quest Capture System
-- ✅ **Automatic quest detection** - Captures quest data when you accept new quests
-- ✅ **NPC tracking** - Records quest giver and turn-in NPC locations with accurate zone IDs
-- ✅ **Objective tracking** - Monitors where you complete quest objectives
-- ✅ **Quest item sources** - Tracks which NPCs drop quest items
-- ✅ **Reward data** - Captures quest rewards and choice rewards
-- ✅ **Export functionality** - Generate Lua database files from captured quests
-- ✅ **External merger tool** - Permanently integrates captured data into addon database
-
-### How It Works
-1. **In-Game**: Quest capture runs passively in background, recording quest data to SavedVariables
-2. **External Tool**: Run the pfQuest Merger Tool (in `Interface\pfQuest-Tools\`) to permanently merge captured data
-3. **Share**: Export and contribute captured quests to the community
+This is an addon for World of Warcraft Vanilla (1.12) and The Burning Crusade (2.4.3). It helps players to find several ingame objects and quests. The addon reads questobjectives, parses them and uses its internal database to plot the found matches on the world- and minimap. It ships with a GUI to browse through all known objects. If one of the items is not yet available on your realm, you'll see a [?] in front of the name.
 
 The addon is not designed to be a quest- or tourguide, instead the goals are to provide an accurate in-game version of [AoWoW](http://db.vanillagaming.org/) or [Wowhead](http://www.wowhead.com/). The vanilla version is powered by the database of [VMaNGOS](https://github.com/vmangos). The Burning Crusade version is using data from the [CMaNGOS](https://github.com/cmangos) project with translations taken from [MaNGOS Extras](https://github.com/MangosExtras).
 
-pfQuest is the successor of [ShaguQuest](https://shagu.org/ShaguQuest/) and has been entirely written from scratch. In comparison to [ShaguQuest](https://shagu.org/ShaguQuest/), this addon does not depend on any specific map- or questlog addon. It's designed to support the default interface aswell as every other addon.
+pfQuest is the successor of [ShaguQuest](https://shagu.org/ShaguQuest/) and has been entirely written from scratch. In comparison to [ShaguQuest](https://shagu.org/ShaguQuest/), this addon does not depend on any specific map- or questlog addon. It's designed to support the default interface aswell as every other addon. In case you experience any addon conflicts, please add an issue to the bugtracker.
 
 # Downloads
 You can check the [[Latest Changes]](https://github.com/shagu/pfQuest/commits/master) page to see what has changed recently.
@@ -158,23 +138,3 @@ The "Reset" button will restore the default visibility of icons to match the set
 <img src="https://raw.githubusercontent.com/shagu/ShaguAddons/master/_img/pfQuest/chat-cli.png">
 
 The addon features a CLI interface which allows you to easilly create macros to show your favourite herb or mining-veins. Let's say you want to display all **Iron Deposit** deposits, then type in chat or create a macro with the text: `/db object Iron Deposit`. You can also display all mines on the map by typing: `/db mines`. This can be extended by giving the minimum and maximum required skill as paramter, like: `/db mines 150 225` to display all ores between skill 150 and 225. The `mines` parameter can also be replaced by `herbs`, `rares`, `chests` or `taxi` in order to show those instead. If `/db` doesn't work for you, there are also some other aliases available like `/shagu`, `pfquest` and `/pfdb`.
-
-## Quest Capture Commands
-- `/pfquest capture` - Open quest capture monitor UI
-- `/pfquest capture scan` - Scan quest log for new quests
-- `/pfquest capture export` - Export captured quests as Lua
-- `/pfquest capture clear` - Clear all captured quest data
-- `/pfquest capture status` - Show capture system status
-
-## External Merger Tool
-
-The quest capture system saves data to SavedVariables but **does not auto-inject** (to prevent breaking quest objectives). To make captured quests permanent:
-
-1. Navigate to `Interface\pfQuest-Tools\dist\`
-2. Run `pfQuest Merger Tool.exe` (or use Python version in `Merger Via CMD\`)
-3. Click "Start Monitoring"
-4. Play WoW - capture quests normally
-5. When you close WoW, the tool automatically merges captured data into the addon database
-6. Next time you load WoW, captured quests are available for all characters!
-
-This approach ensures captured quests are properly integrated without corrupting the quest objective system.

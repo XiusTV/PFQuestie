@@ -449,7 +449,18 @@ local function CreateContinentPin(index)
     return continentPins[index]
 end
 
+local function IsContinentOverlayEnabled()
+    if not pfQuest_config then
+        return true
+    end
+    return pfQuest_config["bronzebeardContinentPins"] ~= "0"
+end
+
 function pfMap:UpdateNodes()
+    if not IsContinentOverlayEnabled() then
+        return original_UpdateNodes(self)
+    end
+
     local continent = GetCurrentMapContinent()
     local zone = GetCurrentMapZone()
 
@@ -487,7 +498,7 @@ function pfMap:UpdateNodes()
         return
     end
 
-    if zone > 0 and not isContinent then
+    if not isContinent then
         return
     end
 
@@ -986,6 +997,15 @@ local originalWorldMapButton_OnUpdate = WorldMapButton:GetScript("OnUpdate")
 WorldMapButton:SetScript(
     "OnUpdate",
     function(self, elapsed)
+        if not IsContinentOverlayEnabled() then
+            if originalWorldMapButton_OnUpdate then
+                originalWorldMapButton_OnUpdate(self, elapsed)
+            end
+            self.lastContinent = GetCurrentMapContinent()
+            self.lastZone = GetCurrentMapZone()
+            return
+        end
+
         if originalWorldMapButton_OnUpdate then
             originalWorldMapButton_OnUpdate(self, elapsed)
         end
