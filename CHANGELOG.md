@@ -52,16 +52,6 @@ All notable changes to the PFQuestie suite will be documented in this file.
 - **Real-time updates** - Most settings apply immediately without reload
 - **Integrated callbacks** - `onupdate` callbacks sync settings with Questie modules
 
-### Added - Quest Capture System
-
-- **Automatic quest detection** - Captures quest data when accepting quests
-- **NPC tracking** - Records quest giver and turn-in locations
-- **Objective tracking** - Monitors where objectives are completed
-- **Quest item sources** - Tracks which NPCs drop quest items
-- **Reward data** - Captures quest rewards and choice rewards
-- **Export functionality** - Generate Lua database files from captured quests
-- **External merger tool** - Permanently integrates captured data
-
 ### Fixed
 
 - **GUID parsing** - Fixed GUID parsing for Wrath client format
