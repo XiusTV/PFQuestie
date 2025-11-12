@@ -28,6 +28,8 @@ PartySync.prefix = "pfQuest"
 PartySync.subPrefix = "pfQPS" -- Sub-prefix encoded in payload
 PartySync.version = 2
 PartySync.remoteTTL = 180
+PartySync.channelName = "pfQuestie" -- Custom channel name for addon communication
+PartySync.channelId = nil -- Will be set when channel is joined
 PartySync.localObjectives = PartySync.localObjectives or {}
 PartySync.pendingKeys = PartySync.pendingKeys or {}
 PartySync.remoteByKey = PartySync.remoteByKey or {}
@@ -75,6 +77,57 @@ local function IsYellAllowed()
     return false
   end
   return true
+end
+
+local function GetChannelId()
+  if PartySync.channelId then
+    return PartySync.channelId
+  end
+  -- Try to find channel ID by name
+  local channels = { GetChannelList() }
+  for i = 1, #channels, 2 do
+    if channels[i + 1] == PartySync.channelName then
+      PartySync.channelId = channels[i]
+      return channels[i]
+    end
+  end
+  return nil
+end
+
+local function JoinCustomChannel()
+  if not PartySync.channelName then return false end
+  
+  -- Check if already joined
+  local existingId = GetChannelId()
+  if existingId and existingId > 0 then
+    PartySync.channelId = existingId
+    return true
+  end
+  
+  -- Try to join the channel
+  local channelId, channelName = JoinChannelByName(PartySync.channelName)
+  if channelId and channelId > 0 then
+    PartySync.channelId = channelId
+    
+    -- Hide channel from all chat frames
+    for i = 1, NUM_CHAT_WINDOWS do
+      local frame = _G["ChatFrame" .. i]
+      if frame then
+        ChatFrame_RemoveChannel(frame, PartySync.channelName)
+      end
+    end
+    
+    if PartySync.debug then
+      DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpf|cffffffffQuest|r|cff66aaffPartySync|r: Joined hidden channel '" .. PartySync.channelName .. "' (ID: " .. channelId .. ")")
+    end
+    return true
+  end
+  
+  -- Channel might not be available yet, try again later
+  if PartySync.debug then
+    DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpf|cffffffffQuest|r|cff66aaffPartySync|r: Failed to join channel '" .. PartySync.channelName .. "', will retry")
+  end
+  return false
 end
 
 local function SerializeYellPayload(payload)
@@ -341,6 +394,10 @@ function PartySync:Initialize()
   self:RegisterEvent("PARTY_MEMBERS_CHANGED", "CleanupGroupMembers")
   self:RegisterEvent("RAID_ROSTER_UPDATE", "CleanupGroupMembers")
   self:RegisterEvent("CHAT_MSG_YELL", "HandleYell")
+  self:RegisterEvent("CHAT_MSG_CHANNEL", "HandleChannel")
+  
+  -- Join custom channel for addon communication
+  JoinCustomChannel()
 
   for key, objective in pairs(self.localObjectives) do
     if type(objective) == "table" then
@@ -480,16 +537,26 @@ function PartySync:FlushBroadcastQueue()
 
   local distribution = ResolveDistribution()
   if not distribution then
-    for key, action in pairs(self.pendingKeys) do
-      if action ~= "remove" then
-        local objective = self.localObjectives[key]
-        if objective then
-          self:QueueYellUpdate(key, objective)
+    -- Use custom channel or yell fallback if available
+    local channelId = GetChannelId()
+    local hasChannel = channelId and channelId > 0
+    local yellAllowed = IsYellAllowed()
+    
+    if hasChannel or yellAllowed then
+      for key, action in pairs(self.pendingKeys) do
+        if action ~= "remove" then
+          local objective = self.localObjectives[key]
+          if objective then
+            self:QueueYellUpdate(key, objective)
+          end
         end
+        self.pendingKeys[key] = nil
       end
-      self.pendingKeys[key] = nil
+      self:ScheduleYell()
+    else
+      -- No channel and yell disabled - just clear pending keys
+      self.pendingKeys = {}
     end
-    self:ScheduleYell()
     return
   end
 
@@ -524,6 +591,8 @@ end
 function PartySync:HandlePlayerEnteringWorld()
   self:CleanupExpired(true)
   self:CleanupGroupMembers()
+  -- Try to join channel again when entering world (in case we got disconnected)
+  JoinCustomChannel()
 end
 
 function PartySync:CleanupGroupMembers()
@@ -570,6 +639,33 @@ function PartySync:GetTooltipLines(key)
   if not self:IsEnabled() then return nil end
   if not self.initialized then self:Initialize() end
   if not self.initialized then return nil end
+
+  -- Don't show party sync data when solo
+  local numRaid = GetNumRaidMembers and GetNumRaidMembers() or 0
+  local numParty = GetNumPartyMembers and GetNumPartyMembers() or 0
+  if numRaid == 0 and numParty == 0 then
+    -- Solo - clean up all remote data and return nil
+    self.remoteByKey = {}
+    return nil
+  end
+
+  -- Get current party roster
+  local currentRoster = {}
+  if numRaid > 0 then
+    for i = 1, numRaid do
+      local name = GetRaidRosterInfo and GetRaidRosterInfo(i)
+      if name then
+        currentRoster[NormalizePlayerName(name)] = true
+      end
+    end
+  elseif numParty > 0 then
+    for i = 1, numParty do
+      local name = UnitName("party" .. i)
+      if name then
+        currentRoster[NormalizePlayerName(name)] = true
+      end
+    end
+  end
 
   self:CleanupExpired(false)
   local bucket = self.remoteByKey[key]
@@ -654,7 +750,8 @@ function PartySync:GetTooltipLines(key)
   local now = GetTime and GetTime() or 0
   local lines = {}
   for player, entry in pairs(bucket) do
-    if entry.updated and (now - entry.updated) <= self.remoteTTL then
+    -- Only include entries from players in current party/raid
+    if currentRoster[player] and entry.updated and (now - entry.updated) <= self.remoteTTL then
       local progress
       if entry.required and entry.required > 0 then
         progress = string.format("%d/%d", entry.fulfilled or 0, entry.required)
@@ -667,6 +764,7 @@ function PartySync:GetTooltipLines(key)
   end
 
   if not next(lines) then
+    -- Clean up empty buckets
     self.remoteByKey[key] = nil
     return nil
   end
@@ -773,15 +871,27 @@ end
 function PartySync:ScheduleYell()
   if not self._yellState then return end
   if self._yellState.timer then return end
-  if not IsYellAllowed() then return end
+  
+  -- Allow if we have channel OR if yell is allowed
+  local channelId = GetChannelId()
+  local hasChannel = channelId and channelId > 0
+  local yellAllowed = IsYellAllowed()
+  
+  if not hasChannel and not yellAllowed then return end
   if not next(self._yellState.waiting) then return end
+  
   self._yellState.timer = self:ScheduleTimer("FlushYellQueue", 2)
 end
 
 function PartySync:FlushYellQueue()
   if not self._yellState then return end
   self._yellState.timer = nil
-  if not IsYellAllowed() then
+  
+  -- Try to use custom channel first, fall back to YELL if channel not available
+  local channelId = GetChannelId()
+  local useChannel = channelId and channelId > 0
+  
+  if not useChannel and not IsYellAllowed() then
     self._yellState.waiting = {}
     return
   end
@@ -800,7 +910,14 @@ function PartySync:FlushYellQueue()
   self._yellState.waiting[key] = nil
   local serialized = SerializeYellPayload(payload)
   if serialized then
-    SendChatMessage(string.format("%s:%s", self.prefix, serialized), "YELL")
+    local message = string.format("%s:%s", self.prefix, serialized)
+    if useChannel then
+      -- Send to custom channel
+      SendChatMessage(message, "CHANNEL", nil, channelId)
+    else
+      -- Fall back to YELL
+      SendChatMessage(message, "YELL")
+    end
     self._yellState.lastFlush = now
   end
 
@@ -840,6 +957,30 @@ end
 function PartySync:HandleYell(_, message, sender)
   if not self:IsEnabled() then return end
   if not message or not sender then return end
+
+  local prefix, payloadText = string.match(message, "^(%S+):(.+)$")
+  if prefix ~= self.prefix then return end
+
+  sender = NormalizePlayerName(sender)
+  if sender == GetLocalPlayerName() then return end
+
+  local payload = ParseYellPayload(payloadText)
+  if not payload or not payload.k then return end
+
+  self:StoreRemoteEntry(payload.k, sender, {
+    questId = payload.q,
+    objectiveIndex = payload.o,
+    fulfilled = payload.f,
+    required = payload.r,
+  })
+end
+
+function PartySync:HandleChannel(_, message, sender, _, _, _, _, _, channelName)
+  if not self:IsEnabled() then return end
+  if not message or not sender then return end
+  
+  -- Only process messages from our custom channel
+  if channelName ~= self.channelName then return end
 
   local prefix, payloadText = string.match(message, "^(%S+):(.+)$")
   if prefix ~= self.prefix then return end

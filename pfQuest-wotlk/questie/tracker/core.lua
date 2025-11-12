@@ -352,6 +352,8 @@ function TrackerLinePool.Initialize(container)
   TrackerLinePool.container = container
   TrackerLinePool.lines = TrackerLinePool.lines or {}
   TrackerLinePool.inUse = TrackerLinePool.inUse or {}
+  TrackerLinePool.itemButtons = TrackerLinePool.itemButtons or {}
+  TrackerLinePool.itemButtonsInUse = TrackerLinePool.itemButtonsInUse or {}
 end
 
 function QuestieTracker:HandleLineClick(line, button)
@@ -451,6 +453,135 @@ function TrackerLinePool:ReleaseAll()
     table.insert(self.lines, line)
   end
   wipe(self.inUse)
+  
+  -- Release all item buttons
+  for _, button in ipairs(self.itemButtonsInUse) do
+    button:Hide()
+    button.itemId = nil
+    button.line = nil
+    QuestieTracker:UnregisterFadeTarget(button)
+    table.insert(self.itemButtons, button)
+  end
+  wipe(self.itemButtonsInUse)
+end
+
+local function GetQuestItemButtons(questId, qlogid)
+  if not qlogid then return {} end
+  
+  local items = {}
+  local numObjectives = GetNumQuestLeaderBoards(qlogid) or 0
+  
+  -- Check objectives for item requirements
+  for i = 1, numObjectives do
+    local objectiveText, objectiveType = GetQuestLogLeaderBoard(i, qlogid)
+    if objectiveText and objectiveType == "item" then
+      -- Parse item name from objective text (format: "Item Name: 5/10")
+      local itemName = string.match(objectiveText, "^([^:]+)")
+      if itemName then
+        itemName = string.gsub(itemName, "^%s+", "")
+        itemName = string.gsub(itemName, "%s+$", "")
+        
+        -- Try to find this item in bags by comparing names from links
+        for bag = 0, 4 do
+          for slot = 1, GetContainerNumSlots(bag) do
+            local link = GetContainerItemLink(bag, slot)
+            if link then
+              -- Extract item name from link: |cff9d9d9d|Hitem:12345:0:0:0|h[Item Name]|h|r
+              local linkItemName = string.match(link, "%[([^%]]+)%]")
+              if linkItemName and linkItemName == itemName then
+                local _, _, itemIdStr = string.find(link, "item:(%d+)")
+                if itemIdStr then
+                  local itemId = tonumber(itemIdStr)
+                  -- Check if we already added it
+                  local found = false
+                  for _, existing in ipairs(items) do
+                    if existing.itemId == itemId then
+                      found = true
+                      break
+                    end
+                  end
+                  if not found then
+                    table.insert(items, {
+                      itemId = itemId,
+                      itemName = itemName,
+                      count = GetItemCount(itemId, nil, true) or 0,
+                    })
+                  end
+                end
+              end
+            end
+          end
+        end
+        
+        -- Also check equipped items
+        for slot = 1, 19 do
+          local link = GetInventoryItemLink("player", slot)
+          if link then
+            local linkItemName = string.match(link, "%[([^%]]+)%]")
+            if linkItemName and linkItemName == itemName then
+              local _, _, itemIdStr = string.find(link, "item:(%d+)")
+              if itemIdStr then
+                local itemId = tonumber(itemIdStr)
+                local found = false
+                for _, existing in ipairs(items) do
+                  if existing.itemId == itemId then
+                    found = true
+                    break
+                  end
+                end
+                if not found then
+                  table.insert(items, {
+                    itemId = itemId,
+                    itemName = itemName,
+                    count = GetItemCount(itemId, nil, true) or 0,
+                  })
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+  
+  return items
+end
+
+function TrackerLinePool:GetItemButton()
+  local button = table.remove(self.itemButtons)
+  if not button then
+    button = CreateFrame("Button", nil, self.container.content, "SecureActionButtonTemplate")
+    button:SetSize(16, 16)
+    button:SetFrameStrata("MEDIUM")
+    
+    button.icon = button:CreateTexture(nil, "ARTWORK")
+    button.icon:SetAllPoints()
+    button.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+    
+    button.count = button:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmallGray")
+    button.count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -1, 2)
+    button.count:SetJustifyH("RIGHT")
+    
+    button:SetScript("OnEnter", function(self)
+      TrackerFadeTicker:HandleEnter()
+      if self.itemId then
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetHyperlink("item:" .. self.itemId)
+        GameTooltip:Show()
+      end
+    end)
+    button:SetScript("OnLeave", function(self)
+      TrackerFadeTicker:HandleLeave()
+      GameTooltip:Hide()
+    end)
+    
+    -- Register with fade system
+    QuestieTracker:RegisterFadeTarget(button, { minAlpha = 0.35 })
+  end
+  
+  button:Show()
+  table.insert(self.itemButtonsInUse, button)
+  return button
 end
 
 local function AttachFadeHooks(frame)
@@ -710,19 +841,51 @@ function QuestieTracker:Update()
     addPlaceholder()
   else
     for _, entry in ipairs(questEntries) do
-      local levelText = ""
-      if entry.level and entry.level > 0 then
-        levelText = string.format("|cffffcc00[%d]|r ", entry.level)
-      end
-
       local titleColor = "ffffff"
       local questComplete
+      local questLevel = entry.level or 0
+      
+      -- Try to get level from quest log first (more accurate)
       if entry.qlogid then
-        local _, _, _, _, _, complete = compat.GetQuestLogTitle(entry.qlogid)
+        local _, level, _, _, _, complete = compat.GetQuestLogTitle(entry.qlogid)
         questComplete = complete
         if complete then
           titleColor = "33ff33"
         end
+        -- Use quest log level if available, otherwise fall back to database level
+        if level and level > 0 then
+          questLevel = tonumber(level) or questLevel
+        end
+      end
+
+      -- Level-based color coding for quest titles only (not objectives)
+      if not questComplete and questLevel and questLevel > 0 then
+        local playerLevel = UnitLevel("player") or 1
+        local levelDiff = questLevel - playerLevel
+        
+        -- Color coding based on level difference
+        if levelDiff <= -7 then
+          -- Gray: 7+ levels below player
+          titleColor = "808080"
+        elseif levelDiff >= -6 and levelDiff <= -4 then
+          -- Green: 4-6 levels below player
+          titleColor = "00ff00"
+        elseif levelDiff >= -3 and levelDiff <= 3 then
+          -- Yellow: 3 levels below to 3 levels above player (includes same level)
+          titleColor = "ffff00"
+        elseif levelDiff == 4 then
+          -- Orange/Red: 4 levels above player
+          titleColor = "ff8000"
+        elseif levelDiff >= 5 then
+          -- Darker Red: 5+ levels above player
+          titleColor = "cc0000"
+        end
+      end
+
+      -- Build level text as plain text (no color codes)
+      local levelText = ""
+      if questLevel and questLevel > 0 then
+        levelText = string.format("[%d] ", questLevel)
       end
 
       local focusPrefix = ""
@@ -734,20 +897,74 @@ function QuestieTracker:Update()
         end
       end
 
+      -- Apply color to both level number and title together
       local questLine = string.format("%s|cff%s%s%s|r", focusPrefix, titleColor, levelText, entry.title)
-      addLine(questLine, 0, {
+      local titleLine = addLine(questLine, 0, {
         questId = entry.id,
         questTitle = entry.title,
       })
 
+      -- Add quest item buttons if quest has required items
       if entry.qlogid then
+        local questItems = GetQuestItemButtons(entry.id, entry.qlogid)
+        if #questItems > 0 then
+          -- Create a container line for buttons (indented like objectives)
+          local buttonLine = addLine("", 12) -- Empty line with indent for buttons
+          buttonLine:SetHeight(16)
+          
+          -- Position buttons horizontally on this line
+          local buttonX = 0
+          for i, itemData in ipairs(questItems) do
+            if i <= 3 then -- Limit to 3 buttons per quest
+              local button = TrackerLinePool:GetItemButton()
+              button.itemId = itemData.itemId
+              button.line = buttonLine
+              
+              -- Get item texture (GetItemInfo may return nil if item not cached)
+              local name, link, quality, iLevel, reqLevel, class, subclass, maxStack, equipSlot, texture = GetItemInfo(itemData.itemId)
+              if not texture and link then
+                -- Try to get texture from link if direct call failed
+                local _, _, itemIdStr = string.find(link, "item:(%d+)")
+                if itemIdStr then
+                  name, link, quality, iLevel, reqLevel, class, subclass, maxStack, equipSlot, texture = GetItemInfo(tonumber(itemIdStr))
+                end
+              end
+              if texture then
+                button.icon:SetTexture(texture)
+              else
+                -- Fallback: use a placeholder texture
+                button.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+              end
+              
+              -- Set item count
+              if itemData.count and itemData.count > 1 then
+                button.count:SetText(itemData.count)
+                button.count:Show()
+              else
+                button.count:Hide()
+              end
+              
+              -- Position button on the button line
+              button:ClearAllPoints()
+              button:SetPoint("LEFT", buttonLine, "LEFT", buttonX, 0)
+              buttonX = buttonX + 18
+              
+              -- Set up secure action for clicking
+              button:SetAttribute("type1", "item")
+              button:SetAttribute("item1", "item:" .. itemData.itemId)
+              button:RegisterForClicks("AnyUp")
+            end
+          end
+        end
+        
         local numObjectives = GetNumQuestLeaderBoards(entry.qlogid) or 0
         if numObjectives > 0 then
           for objectiveIndex = 1, numObjectives do
             local objectiveText, _, finished = GetQuestLogLeaderBoard(objectiveIndex, entry.qlogid)
             if objectiveText then
-              local objectiveColor = finished and "808080" or "ffffff"
-              addLine(string.format("|cff%s- %s|r", objectiveColor, objectiveText), 12)
+              -- Objectives are always white (or gray if completed)
+              local objColor = finished and "808080" or "ffffff"
+              addLine(string.format("|cff%s- %s|r", objColor, objectiveText), 12)
             end
           end
         elseif questComplete then

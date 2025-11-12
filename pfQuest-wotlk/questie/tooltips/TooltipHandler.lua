@@ -19,6 +19,59 @@ local function ShouldShowTooltips()
   return true
 end
 
+-- Helper to strip color codes from text
+local function stripColorCodes(text)
+  if not text then return "" end
+  -- Remove all color codes like |cffffcc00, |r, etc.
+  text = string.gsub(text, "|c%x%x%x%x%x%x%x%x", "")
+  text = string.gsub(text, "|r", "")
+  text = string.gsub(text, "|H.-|h", "")
+  text = string.gsub(text, "|h", "")
+  return text
+end
+
+-- Helper to normalize objective line for deduplication
+local function normalizeObjective(line)
+  if not line then return "" end
+  -- Strip color codes first
+  local clean = stripColorCodes(line)
+  -- Remove leading dashes, whitespace, and quest markers
+  clean = string.gsub(clean, "^%s*%-%s*", "")
+  clean = string.gsub(clean, "^%s*%[%!%]%s*", "")
+  clean = string.gsub(clean, "^%s*%[%?%]%s*", "")
+  -- Remove inline drop rate percentages like [20%] or [20%] anywhere in the line
+  clean = string.gsub(clean, "%s*%[%d+%%%]%s*", "")
+  -- Extract item name and current progress (e.g., "Centaur Ear: 12/15" -> "Centaur Ear:12")
+  -- Match pattern: item name, colon, optional space, current number, slash, total number
+  local itemName, current = string.match(clean, "^(.+):%s*(%d+)/%d+")
+  if itemName and current then
+    -- Normalize item name: trim whitespace and convert to lowercase for matching
+    itemName = string.gsub(itemName, "^%s+", "")
+    itemName = string.gsub(itemName, "%s+$", "")
+    -- Return normalized key: lowercase item name + current progress
+    return string.lower(itemName) .. ":" .. current
+  end
+  -- Fallback: return cleaned and normalized line
+  clean = string.gsub(clean, "^%s+", "")
+  clean = string.gsub(clean, "%s+$", "")
+  return string.lower(clean)
+end
+
+-- Helper to extract normalized quest name from text (strips color codes and quest markers)
+local function extractQuestName(text)
+  if not text then return "" end
+  -- Strip color codes first
+  local clean = stripColorCodes(text)
+  -- Remove quest markers like [!] or [?] anywhere in the text
+  clean = string.gsub(clean, "%[%!%]", "")
+  clean = string.gsub(clean, "%[%?%]", "")
+  -- Remove leading/trailing whitespace
+  clean = string.gsub(clean, "^%s+", "")
+  clean = string.gsub(clean, "%s+$", "")
+  -- Return normalized (lowercase) for comparison
+  return string.lower(clean)
+end
+
 local function AppendTooltipLines(tooltip, key)
   if not tooltip or not key then return end
   local data = QuestieTooltips:GetTooltip(key)
@@ -38,16 +91,108 @@ local function AppendTooltipLines(tooltip, key)
   end
 
   local added = false
+  local seenQuests = {} -- Track quest names (normalized) to prevent duplication
+  local dropRates = {} -- Track drop rates per quest for averaging
+  local questEntries = {} -- Store entries by normalized quest name
+  
   if data then
-    for _, entry in pairs(data) do
-      if entry.lines then
-        for _, line in ipairs(entry.lines) do
-          tooltip:AddLine(line)
+    -- First pass: collect all entries and drop rates
+    for questId, entry in pairs(data) do
+      if entry.lines and entry.lines[1] then
+        local questNameRaw = entry.lines[1]
+        local questName = extractQuestName(questNameRaw)
+        
+        if questName and questName ~= "" then
+          -- Collect drop rates
+          for _, line in ipairs(entry.lines) do
+            local dropRate = string.match(line, "Drop Rate.*(%d+)%%")
+            if dropRate then
+              if not dropRates[questName] then
+                dropRates[questName] = {}
+              end
+              table.insert(dropRates[questName], tonumber(dropRate))
+            end
+          end
+          
+          -- Store entry by normalized quest name
+          if not questEntries[questName] then
+            questEntries[questName] = {}
+          end
+          table.insert(questEntries[questName], entry)
         end
-        added = true
       elseif entry.text then
-        tooltip:AddLine(entry.text)
-        added = true
+        local questName = extractQuestName(entry.text)
+        if questName and questName ~= "" then
+          if not questEntries[questName] then
+            questEntries[questName] = {}
+          end
+          table.insert(questEntries[questName], entry)
+        end
+      end
+    end
+    
+    -- Second pass: display each unique quest once
+    for questName, entries in pairs(questEntries) do
+      if not seenQuests[questName] then
+        seenQuests[questName] = true
+        
+        -- Use the first entry for the quest name/header
+        local firstEntry = entries[1]
+        if firstEntry.lines then
+          -- Show quest name (first line)
+          tooltip:AddLine(firstEntry.lines[1])
+          added = true
+          
+          -- Collect all unique objectives from all entries
+          local seenObjectives = {}
+          local objectiveLines = {} -- Store the best formatted version of each objective
+          for _, entry in ipairs(entries) do
+            for i = 2, #entry.lines do
+              local line = entry.lines[i]
+              -- Skip metadata lines
+              if not string.find(line, "Level:") and 
+                 not string.find(line, "Required:") and
+                 not string.find(line, "Drop Rate:") and
+                 not string.find(line, "Quest ID:") then
+                -- Normalize the objective to detect duplicates
+                local normalized = normalizeObjective(line)
+                if normalized and normalized ~= "" then
+                  if not seenObjectives[normalized] then
+                    seenObjectives[normalized] = true
+                    -- Store the line (prefer one without inline drop rate for cleaner display)
+                    if not string.find(line, "%[%d+%%%]") then
+                      -- Prefer lines without inline drop rate
+                      objectiveLines[normalized] = line
+                    elseif not objectiveLines[normalized] then
+                      -- Fallback to any version if we don't have one yet
+                      objectiveLines[normalized] = line
+                    end
+                  end
+                end
+              end
+            end
+          end
+          
+          -- Display all unique objectives
+          for normalized, line in pairs(objectiveLines) do
+            tooltip:AddLine(line)
+            added = true
+          end
+          
+          -- Add averaged drop rate if we have any
+          if dropRates[questName] and #dropRates[questName] > 0 then
+            local sum = 0
+            for _, rate in ipairs(dropRates[questName]) do
+              sum = sum + rate
+            end
+            local avgRate = math.floor((sum / #dropRates[questName]) + 0.5)
+            tooltip:AddLine(string.format("|cffffffffDrop Rate:|r %d%%", avgRate))
+            added = true
+          end
+        elseif firstEntry.text then
+          tooltip:AddLine(firstEntry.text)
+          added = true
+        end
       end
     end
   end

@@ -384,6 +384,12 @@ function pfDatabase:BuildQuestDescription(meta)
     return string.format(pfQuest_Loc["Speak with |cff33ffcc%s|r to obtain |cffffcc00[!]|cff33ffcc %s|r"], (meta.spawn or UNKNOWN), (meta.quest or UNKNOWN))
   elseif meta.QTYPE == "OBJECT_START" then
     return string.format(pfQuest_Loc["Interact with |cff33ffcc%s|r to obtain |cffffcc00[!]|cff33ffcc %s|r"], (meta.spawn or UNKNOWN), (meta.quest or UNKNOWN))
+  elseif meta.QTYPE == "ITEM_START" then
+    if meta.dropsources and meta.dropsources ~= "" then
+      return string.format(pfQuest_Loc["Loot |cff33ffcc[%s]|r from |cff33ffcc%s|r to obtain |cff66ff66[!]|cff33ffcc %s|r"], (meta.spawn or UNKNOWN), meta.dropsources, (meta.quest or UNKNOWN))
+    else
+      return string.format(pfQuest_Loc["Loot |cff33ffcc[%s]|r to obtain |cff66ff66[!]|cff33ffcc %s|r"], (meta.spawn or UNKNOWN), (meta.quest or UNKNOWN))
+    end
   elseif meta.QTYPE == "NPC_END" then
     return string.format(pfQuest_Loc["Speak with |cff33ffcc%s|r to complete |cffffcc00[?]|cff33ffcc %s|r"], (meta.spawn or UNKNOWN), (meta.quest or UNKNOWN))
   elseif meta.QTYPE == "OBJECT_END" then
@@ -1130,6 +1136,211 @@ function pfDatabase:SearchQuestID(id, meta, maps)
           maps = pfDatabase:SearchObjectID(object, meta, maps, 0)
         end
       end
+
+      -- items (item drop quest starters)
+      if pfQuest_config["hideItemDrops"] ~= "1" and quests[id]["start"]["I"] then
+        local items = pfDB["items"]["data"]
+        local units = pfDB["units"]["data"]
+        local objects = pfDB["objects"]["data"]
+        local refloot = pfDB["refloot"]["data"]
+        
+        -- Helper function to calculate gray level
+        local function GetGrayLevel(charLevel)
+          if charLevel <= 5 then
+            return 0
+          elseif charLevel <= 49 then
+            return charLevel - math.floor(charLevel / 10) - 5
+          elseif charLevel == 50 then
+            return 40
+          elseif charLevel <= 59 then
+            return charLevel - math.floor(charLevel / 5) - 1
+          else
+            return charLevel - 9
+          end
+        end
+        
+        for _, item in pairs(quests[id]["start"]["I"]) do
+          if items[item] then
+            local drop_sources = {}
+            local sources_with_levels = {}
+            
+            -- Collect drop sources from units
+            if items[item]["U"] then
+              for unit, chance in pairs(items[item]["U"]) do
+                local unit_name = pfDB["units"]["loc"][unit]
+                if unit_name and not drop_sources[unit_name] then
+                  drop_sources[unit_name] = true
+                  local unit_level = units[unit] and units[unit]["lvl"] or "?"
+                  sources_with_levels[unit_name] = {level = unit_level, chance = chance}
+                end
+              end
+            end
+            
+            -- Collect drop sources from objects
+            if items[item]["O"] then
+              for object, chance in pairs(items[item]["O"]) do
+                local obj_name = pfDB["objects"]["loc"][object]
+                if obj_name and not drop_sources[obj_name] then
+                  drop_sources[obj_name] = true
+                  sources_with_levels[obj_name] = {level = "Object", chance = chance}
+                end
+              end
+            end
+            
+            -- Collect drop sources from refloot
+            if items[item]["R"] then
+              for ref, chance in pairs(items[item]["R"]) do
+                if refloot[ref] then
+                  if refloot[ref]["U"] then
+                    for unit in pairs(refloot[ref]["U"]) do
+                      local unit_name = pfDB["units"]["loc"][unit]
+                      if unit_name and not drop_sources[unit_name] then
+                        drop_sources[unit_name] = true
+                        local unit_level = units[unit] and units[unit]["lvl"] or "?"
+                        sources_with_levels[unit_name] = {level = unit_level, chance = chance}
+                      end
+                    end
+                  end
+                  if refloot[ref]["O"] then
+                    for object in pairs(refloot[ref]["O"]) do
+                      local obj_name = pfDB["objects"]["loc"][object]
+                      if obj_name and not drop_sources[obj_name] then
+                        drop_sources[obj_name] = true
+                        sources_with_levels[obj_name] = {level = "Object", chance = chance}
+                      end
+                    end
+                  end
+                end
+              end
+            end
+            
+            -- Build sources text
+            local sources_text = ""
+            local source_count = 0
+            local display_count = 0
+            for source_name in pairs(drop_sources) do
+              source_count = source_count + 1
+            end
+            for source_name in pairs(drop_sources) do
+              display_count = display_count + 1
+              if display_count > 1 then sources_text = sources_text .. ", " end
+              sources_text = sources_text .. source_name
+              if display_count >= 3 then
+                if source_count > 3 then
+                  sources_text = sources_text .. " (+" .. (source_count - 3) .. " more)"
+                end
+                break
+              end
+            end
+            
+            -- Find best source (most spawn locations)
+            local best_source = nil
+            local best_count = 0
+            if items[item]["U"] then
+              for unit, chance in pairs(items[item]["U"]) do
+                if units[unit] and units[unit]["coords"] then
+                  local count = table.getn(units[unit]["coords"])
+                  if count > best_count then
+                    best_count = count
+                    best_source = {type = "unit", id = unit}
+                  end
+                end
+              end
+            end
+            if items[item]["O"] then
+              for object, chance in pairs(items[item]["O"]) do
+                if objects[object] and objects[object]["coords"] then
+                  local count = table.getn(objects[object]["coords"])
+                  if count > best_count then
+                    best_count = count
+                    best_source = {type = "object", id = object}
+                  end
+                end
+              end
+            end
+            if items[item]["R"] then
+              for ref, chance in pairs(items[item]["R"]) do
+                if refloot[ref] then
+                  if refloot[ref]["U"] then
+                    for unit in pairs(refloot[ref]["U"]) do
+                      if units[unit] and units[unit]["coords"] then
+                        local count = table.getn(units[unit]["coords"])
+                        if count > best_count then
+                          best_count = count
+                          best_source = {type = "unit", id = unit}
+                        end
+                      end
+                    end
+                  end
+                  if refloot[ref]["O"] then
+                    for object in pairs(refloot[ref]["O"]) do
+                      if objects[object] and objects[object]["coords"] then
+                        local count = table.getn(objects[object]["coords"])
+                        if count > best_count then
+                          best_count = count
+                          best_source = {type = "object", id = object}
+                        end
+                      end
+                    end
+                  end
+                end
+              end
+            end
+            
+            -- Create nodes for item drop quest starters
+            if best_source then
+              local coords_table = best_source.type == "unit" and units[best_source.id]["coords"] or objects[best_source.id]["coords"]
+              local zones_coords = {}
+              for _, data in pairs(coords_table) do
+                local x, y, zone = unpack(data)
+                if zone > 0 and not zones_coords[zone] then
+                  zones_coords[zone] = {x, y}
+                end
+              end
+              
+              for zone, coords in pairs(zones_coords) do
+                local item_meta = {}
+                for k, v in pairs(meta or {}) do item_meta[k] = v end
+                
+                item_meta["QTYPE"] = "ITEM_START"
+                item_meta["layer"] = 4
+                item_meta["texture"] = pfQuestConfig.path.."\\img\\available"
+                local plevel = UnitLevel("player")
+                if quests[id]["min"] and quests[id]["min"] > plevel then
+                  item_meta["vertex"] = { 1, .6, .6 }
+                  item_meta["layer"] = 2
+                elseif quests[id]["lvl"] and quests[id]["lvl"] <= GetGrayLevel(plevel) then
+                  item_meta["vertex"] = { 1, 1, 1 }
+                  item_meta["layer"] = 2
+                elseif quests[id]["event"] then
+                  item_meta["vertex"] = { .2, .8, 1 }
+                  item_meta["layer"] = 2
+                end
+                
+                item_meta["spawn"] = pfDB["items"]["loc"][item] or UNKNOWN
+                item_meta["spawnid"] = item
+                item_meta["item"] = pfDB["items"]["loc"][item]
+                item_meta["dropsources"] = sources_text
+                item_meta["dropsources_levels"] = sources_with_levels
+                item_meta["title"] = item_meta["quest"] or item_meta["spawn"]
+                item_meta["zone"] = zone
+                item_meta["x"] = coords[1]
+                item_meta["y"] = coords[2]
+                item_meta["level"] = pfQuest_Loc["N/A"] or "N/A"
+                item_meta["spawntype"] = pfQuest_Loc["Item Drop"] or "Item Drop"
+                item_meta["respawn"] = pfQuest_Loc["N/A"] or "N/A"
+                if pfDatabase.BuildQuestDescription then
+                  item_meta["description"] = pfDatabase:BuildQuestDescription(item_meta)
+                end
+                
+                maps = maps or {}
+                maps[zone] = maps[zone] and maps[zone] + 0 or 0
+                pfMap:AddNode(item_meta)
+              end
+            end
+          end
+        end
+      end
     end
 
     -- search quest-ender
@@ -1427,6 +1638,49 @@ function pfDatabase:QuestFilter(id, plevel, pclass, prace)
   -- hide event quests
   if quests[id]["event"] and pfQuest_config["showfestival"] == "0" then return end
 
+  -- hide PvP quests
+  if pfQuest_config["hidePvPQuests"] == "1" then
+    local title = pfDB.quests.loc[id] and pfDB.quests.loc[id].T
+    if title and (
+      string.find(title, "Warsong") or
+      string.find(title, "Arathi") or
+      string.find(title, "Alterac") or
+      string.find(title, "Battleground") or
+      string.find(title, "Call to Skirmish")
+    ) then
+      return
+    end
+  end
+
+  -- hide Commission quests
+  if pfQuest_config["hideCommissionQuests"] == "1" then
+    local title = pfDB.quests.loc[id] and pfDB.quests.loc[id].T
+    if title and string.find(title, "Commission for") then
+      return
+    end
+  end
+
+  -- hide chicken quests
+  if pfQuest_config["hideChickenQuests"] == "1" then
+    local title = pfDB.quests.loc[id] and pfDB.quests.loc[id].T
+    if title and string.find(title, "CLUCK!") then
+      return
+    end
+  end
+
+  -- hide Felwood flowers
+  if pfQuest_config["hideFelwoodFlowers"] == "1" then
+    local title = pfDB.quests.loc[id] and pfDB.quests.loc[id].T
+    if title and (
+      title == "Corrupted Windblossom" or
+      title == "Corrupted Whipper Root" or
+      title == "Corrupted Songflower" or
+      title == "Corrupted Night Dragon"
+    ) then
+      return
+    end
+  end
+
   return true
 end
 
@@ -1506,6 +1760,204 @@ function pfDatabase:SearchQuests(meta, maps)
           for _, object in pairs(quests[id]["start"]["O"]) do
             if objects[object] and strfind(objects[object]["fac"] or pfaction, pfaction) then
               maps = pfDatabase:SearchObjectID(object, meta, maps)
+            end
+          end
+        end
+
+        -- items (item drop quest starters)
+        if pfQuest_config["hideItemDrops"] ~= "1" and quests[id]["start"]["I"] then
+          local items = pfDB["items"]["data"]
+          local refloot = pfDB["refloot"]["data"]
+          
+          -- Helper function to calculate gray level
+          local function GetGrayLevel(charLevel)
+            if charLevel <= 5 then
+              return 0
+            elseif charLevel <= 49 then
+              return charLevel - math.floor(charLevel / 10) - 5
+            elseif charLevel == 50 then
+              return 40
+            elseif charLevel <= 59 then
+              return charLevel - math.floor(charLevel / 5) - 1
+            else
+              return charLevel - 9
+            end
+          end
+          
+          for _, item in pairs(quests[id]["start"]["I"]) do
+            if items[item] then
+              local drop_sources = {}
+              local sources_with_levels = {}
+              
+              -- Collect drop sources
+              if items[item]["U"] then
+                for unit, chance in pairs(items[item]["U"]) do
+                  local unit_name = pfDB["units"]["loc"][unit]
+                  if unit_name and not drop_sources[unit_name] then
+                    drop_sources[unit_name] = true
+                    local unit_level = units[unit] and units[unit]["lvl"] or "?"
+                    sources_with_levels[unit_name] = {level = unit_level, chance = chance}
+                  end
+                end
+              end
+              if items[item]["O"] then
+                for object, chance in pairs(items[item]["O"]) do
+                  local obj_name = pfDB["objects"]["loc"][object]
+                  if obj_name and not drop_sources[obj_name] then
+                    drop_sources[obj_name] = true
+                    sources_with_levels[obj_name] = {level = "Object", chance = chance}
+                  end
+                end
+              end
+              if items[item]["R"] then
+                for ref, chance in pairs(items[item]["R"]) do
+                  if refloot[ref] then
+                    if refloot[ref]["U"] then
+                      for unit in pairs(refloot[ref]["U"]) do
+                        local unit_name = pfDB["units"]["loc"][unit]
+                        if unit_name and not drop_sources[unit_name] then
+                          drop_sources[unit_name] = true
+                          local unit_level = units[unit] and units[unit]["lvl"] or "?"
+                          sources_with_levels[unit_name] = {level = unit_level, chance = chance}
+                        end
+                      end
+                    end
+                    if refloot[ref]["O"] then
+                      for object in pairs(refloot[ref]["O"]) do
+                        local obj_name = pfDB["objects"]["loc"][object]
+                        if obj_name and not drop_sources[obj_name] then
+                          drop_sources[obj_name] = true
+                          sources_with_levels[obj_name] = {level = "Object", chance = chance}
+                        end
+                      end
+                    end
+                  end
+                end
+              end
+              
+              -- Build sources text
+              local sources_text = ""
+              local source_count = 0
+              local display_count = 0
+              for source_name in pairs(drop_sources) do
+                source_count = source_count + 1
+              end
+              for source_name in pairs(drop_sources) do
+                display_count = display_count + 1
+                if display_count > 1 then sources_text = sources_text .. ", " end
+                sources_text = sources_text .. source_name
+                if display_count >= 3 then
+                  if source_count > 3 then
+                    sources_text = sources_text .. " (+" .. (source_count - 3) .. " more)"
+                  end
+                  break
+                end
+              end
+              
+              -- Find best source
+              local best_source = nil
+              local best_count = 0
+              if items[item]["U"] then
+                for unit, chance in pairs(items[item]["U"]) do
+                  if units[unit] and units[unit]["coords"] then
+                    local count = table.getn(units[unit]["coords"])
+                    if count > best_count then
+                      best_count = count
+                      best_source = {type = "unit", id = unit}
+                    end
+                  end
+                end
+              end
+              if items[item]["O"] then
+                for object, chance in pairs(items[item]["O"]) do
+                  if objects[object] and objects[object]["coords"] then
+                    local count = table.getn(objects[object]["coords"])
+                    if count > best_count then
+                      best_count = count
+                      best_source = {type = "object", id = object}
+                    end
+                  end
+                end
+              end
+              if items[item]["R"] then
+                for ref, chance in pairs(items[item]["R"]) do
+                  if refloot[ref] then
+                    if refloot[ref]["U"] then
+                      for unit in pairs(refloot[ref]["U"]) do
+                        if units[unit] and units[unit]["coords"] then
+                          local count = table.getn(units[unit]["coords"])
+                          if count > best_count then
+                            best_count = count
+                            best_source = {type = "unit", id = unit}
+                          end
+                        end
+                      end
+                    end
+                    if refloot[ref]["O"] then
+                      for object in pairs(refloot[ref]["O"]) do
+                        if objects[object] and objects[object]["coords"] then
+                          local count = table.getn(objects[object]["coords"])
+                          if count > best_count then
+                            best_count = count
+                            best_source = {type = "object", id = object}
+                          end
+                        end
+                      end
+                    end
+                  end
+                end
+              end
+              
+              -- Create nodes
+              if best_source then
+                local coords_table = best_source.type == "unit" and units[best_source.id]["coords"] or objects[best_source.id]["coords"]
+                local zones_coords = {}
+                for _, data in pairs(coords_table) do
+                  local x, y, zone = unpack(data)
+                  if zone > 0 and not zones_coords[zone] then
+                    zones_coords[zone] = {x, y}
+                  end
+                end
+                
+                for zone, coords in pairs(zones_coords) do
+                  local item_meta = {}
+                  for k, v in pairs(meta or {}) do item_meta[k] = v end
+                  
+                  item_meta["QTYPE"] = "ITEM_START"
+                  item_meta["layer"] = 4
+                  item_meta["texture"] = pfQuestConfig.path.."\\img\\available"
+                  if quests[id]["min"] and quests[id]["min"] > plevel then
+                    item_meta["vertex"] = { 1, .6, .6 }
+                    item_meta["layer"] = 2
+                  elseif quests[id]["lvl"] and quests[id]["lvl"] <= GetGrayLevel(plevel) then
+                    item_meta["vertex"] = { 1, 1, 1 }
+                    item_meta["layer"] = 2
+                  elseif quests[id]["event"] then
+                    item_meta["vertex"] = { .2, .8, 1 }
+                    item_meta["layer"] = 2
+                  end
+                  
+                  item_meta["spawn"] = pfDB["items"]["loc"][item] or UNKNOWN
+                  item_meta["spawnid"] = item
+                  item_meta["item"] = pfDB["items"]["loc"][item]
+                  item_meta["dropsources"] = sources_text
+                  item_meta["dropsources_levels"] = sources_with_levels
+                  item_meta["title"] = item_meta["quest"] or item_meta["spawn"]
+                  item_meta["zone"] = zone
+                  item_meta["x"] = coords[1]
+                  item_meta["y"] = coords[2]
+                  item_meta["level"] = pfQuest_Loc["N/A"] or "N/A"
+                  item_meta["spawntype"] = pfQuest_Loc["Item Drop"] or "Item Drop"
+                  item_meta["respawn"] = pfQuest_Loc["N/A"] or "N/A"
+                  if pfDatabase.BuildQuestDescription then
+                    item_meta["description"] = pfDatabase:BuildQuestDescription(item_meta)
+                  end
+                  
+                  maps = maps or {}
+                  maps[zone] = maps[zone] and maps[zone] + 0 or 0
+                  pfMap:AddNode(item_meta)
+                end
+              end
             end
           end
         end

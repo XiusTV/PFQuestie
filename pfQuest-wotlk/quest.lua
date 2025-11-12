@@ -194,6 +194,12 @@ pfQuest:SetScript("OnUpdate", function()
     else
       if entry[4] == "NEW" then
         pfQuest:Debug("|cff55ff55New Quest: " .. entry[1] .. " (" .. entry[2] .. ")")
+        
+        -- Announce quest acceptance if enabled
+        local announceModule = QuestieLoader and QuestieLoader.ImportModule and QuestieLoader:ImportModule("QuestieAnnounce")
+        if announceModule and announceModule.OnQuestAccepted then
+          announceModule:OnQuestAccepted(entry[1], entry[2], entry[3])
+        end
       else
         pfQuest:Debug("|cffffff55Update Quest: " .. entry[1] .. " (" .. entry[2] .. ")")
       end

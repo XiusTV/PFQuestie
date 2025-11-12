@@ -229,6 +229,15 @@ pfMap.tooltip:SetScript("OnShow", function()
   if focus and focus.GetName and strsub((focus:GetName() or ""),0,10) == "QuestTimer" then return end
   -- abort if tooltips are disabled
   if pfQuest_config.showtooltips == "0" then return end
+  
+  -- Skip old tooltip system if Questie tooltip system is active
+  -- The new system handles unit/item tooltips via Handler:HandleUnit/HandleItem
+  if QuestieLoader and QuestieLoader.ImportModule then
+    local tooltipHandler = QuestieLoader:ImportModule("QuestieTooltipHandler")
+    if tooltipHandler then
+      return -- Let the new Questie tooltip system handle it
+    end
+  end
 
   local name = getglobal("GameTooltipTextLeft1") and getglobal("GameTooltipTextLeft1"):GetText() or "__NONE__"
   local zone = pfMap:GetMapID(GetCurrentMapContinent(), GetCurrentMapZone())
@@ -413,13 +422,11 @@ function pfMap:ShowTooltip(meta, tooltip)
     end
   end
 
-  if QuestieLoader and QuestieLoader.ImportModule then
-    local tooltipHandler = QuestieLoader:ImportModule("QuestieTooltipHandler")
-    if tooltipHandler and tooltipHandler.HandleNode then
-      tooltipHandler:HandleNode(meta, tooltip)
-    end
-  end
-
+  -- Only call HandleNode for NPC/item tooltips, not for map node tooltips
+  -- Map node tooltips are handled by pfMap:ShowTooltip above
+  -- HandleNode is meant for unit/item tooltips via OnTooltipSetUnit/OnTooltipSetItem hooks
+  -- Calling it here would duplicate content and interfere with the objectives we just added
+  
   tooltip:Show()
 end
 
@@ -1160,7 +1167,10 @@ pfMap:SetScript("OnUpdate", function(self)
         end
       else
         if frame.focusGlow then
-          frame.focusGlow:Hide()
+          -- Defer Hide() during combat to avoid secure function errors
+          if not (InCombatLockdown and InCombatLockdown()) then
+            frame.focusGlow:Hide()
+          end
         end
       end
 
@@ -1174,9 +1184,13 @@ pfMap:SetScript("OnUpdate", function(self)
           local glowSize = (frame:GetWidth() or frame.defsize or 16) + 6
           frame.focusGlow:SetWidth(glowSize)
           frame.focusGlow:SetHeight(glowSize)
+          -- Show() is safe during combat, only Hide() needs protection
           frame.focusGlow:Show()
         else
-          frame.focusGlow:Hide()
+          -- Defer Hide() during combat to avoid secure function errors
+          if not (InCombatLockdown and InCombatLockdown()) then
+            frame.focusGlow:Hide()
+          end
         end
       end
     end

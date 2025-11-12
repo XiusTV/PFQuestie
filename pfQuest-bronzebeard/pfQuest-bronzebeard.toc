@@ -13,5 +13,4 @@ init\enUS-bronzebeard.xml
 overwrites.lua
 patchtable.lua
 pfQuest-bronzebeard.lua
-pfQuest-announce.lua
 pfQuest-worldmap.lua

@@ -140,7 +140,10 @@ end
 function QuestieFocus:UpdateGlow(frame, glowType)
   if not frame or not frame.focusGlow then return end
   if not glowType then
-    frame.focusGlow:Hide()
+    -- Defer Hide() during combat to avoid secure function errors
+    if not (InCombatLockdown and InCombatLockdown()) then
+      frame.focusGlow:Hide()
+    end
     frame.focusGlowType = nil
     return
   end
@@ -151,6 +154,7 @@ function QuestieFocus:UpdateGlow(frame, glowType)
   local size = (frame:GetWidth() or frame.defsize or 16) + 6
   frame.focusGlow:SetWidth(size)
   frame.focusGlow:SetHeight(size)
+  -- Show() is safe during combat, only Hide() needs protection
   frame.focusGlow:Show()
   frame.focusGlowType = glowType
 end

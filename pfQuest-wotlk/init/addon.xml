@@ -7,6 +7,7 @@
   <Include file="..\questie\core.lua"/>
   <Include file="..\questie\auto\core.lua"/>
   <Include file="..\questie\focus.lua"/>
+  <Include file="..\questie\announce.lua"/>
   <Include file="..\questie\tracker\core.lua"/>
   <Include file="..\questie\tracker\init.lua"/>
   <Include file="..\questie\party\sync.lua"/>
@@ -21,6 +22,7 @@
   <Include file="..\database.lua"/>
   <Include file="..\icons.lua"/>
   <Include file="..\map.lua"/>
+  <Include file="..\continentmap.lua"/>
   <Include file="..\quest.lua"/>
   <Include file="..\route.lua"/>
   <Include file="..\tracker.lua"/>

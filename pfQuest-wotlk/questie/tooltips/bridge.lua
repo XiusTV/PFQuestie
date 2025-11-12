@@ -133,22 +133,8 @@ end
 
 local function appendQuestMetadata(lines, meta)
   local questData = pfDB and pfDB.quests and pfDB.quests.data and pfDB.quests.data[meta.questid]
-  local questLevel = meta.qlvl or (questData and questData.lvl)
-  local requiredLevel = meta.qmin or (questData and questData.min)
-  local loc = pfDB and pfDB.quests and pfDB.quests.loc and pfDB.quests.loc[meta.questid]
-  local questType = loc and loc["T"]
 
-  if questLevel then
-    table.insert(lines, string.format("|cffffffff%s:|r %s",
-      pfQuest_Loc and pfQuest_Loc["Level"] or "Level",
-      levelColor(questLevel)))
-  end
-
-  if requiredLevel and requiredLevel > 0 then
-    table.insert(lines, string.format("|cffffffff%s:|r %s",
-      pfQuest_Loc and pfQuest_Loc["Required"] or "Required",
-      levelColor(requiredLevel, true)))
-  end
+  -- Removed Level and Required Level per user request - too much clutter
 
   if questData and questData.extra then
     if questData.extra.xp then
@@ -161,10 +147,33 @@ local function appendQuestMetadata(lines, meta)
     end
   end
 
+  -- Handle drop rate - average if multiple items, or use single value
   if meta.droprate then
-    table.insert(lines, string.format("|cffffffff%s:|r %s%%",
-      pfQuest_Loc and pfQuest_Loc["Drop Rate"] or "Drop Rate",
-      meta.droprate))
+    local dropRate = meta.droprate
+    -- If meta.item is a table with multiple items, we might want to average
+    -- For now, just use the single droprate value
+    if type(dropRate) == "table" then
+      -- Average multiple drop rates
+      local sum = 0
+      local count = 0
+      for _, rate in pairs(dropRate) do
+        local numRate = tonumber(rate)
+        if numRate then
+          sum = sum + numRate
+          count = count + 1
+        end
+      end
+      if count > 0 then
+        dropRate = math.floor((sum / count) + 0.5) -- Round to nearest integer
+      else
+        dropRate = nil
+      end
+    end
+    if dropRate then
+      table.insert(lines, string.format("|cffffffff%s:|r %s%%",
+        pfQuest_Loc and pfQuest_Loc["Drop Rate"] or "Drop Rate",
+        tostring(dropRate)))
+    end
   end
 
   if meta.sellcount then
@@ -265,13 +274,14 @@ end
 
 -- Update progress for all registered quests on QUEST_LOG_UPDATE
 local updateFrame = CreateFrame("Frame")
-DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpf|cffffffffQuest|r|cff66aaffBridge|r: Creating QUEST_LOG_UPDATE handler frame")
 updateFrame:RegisterEvent("QUEST_LOG_UPDATE")
 updateFrame:RegisterEvent("QUEST_ACCEPTED")
-DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpf|cffffffffQuest|r|cff66aaffBridge|r: Registered QUEST_LOG_UPDATE and QUEST_ACCEPTED events")
 updateFrame:SetScript("OnEvent", function(self, event)
-  -- Unconditional debug for all events
-  DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpf|cffffffffQuest|r|cff66aaffBridge|r: Event fired: " .. (event or "nil"))
+  -- Get PartySync to check debug status
+  local PartySync = QuestieLoader and QuestieLoader:ImportModule("QuestiePartySync")
+  if PartySync and PartySync.debug then
+    DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpf|cffffffffQuest|r|cff66aaffBridge|r: Event fired: " .. (event or "nil"))
+  end
   
   if event ~= "QUEST_LOG_UPDATE" then
     return -- Only process QUEST_LOG_UPDATE for now
@@ -379,8 +389,8 @@ updateFrame:SetScript("OnEvent", function(self, event)
           local numEntries, numQuests = GetNumQuestLogEntries()
           local found = false
           
-          -- Unconditional debug for first few quests
-          if processedCount <= 3 then
+          -- Debug message only if debug is enabled
+          if PartySync and PartySync.debug and processedCount <= 3 then
             DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpf|cffffffffQuest|r|cff66aaffBridge|r: processing quest " .. storedMeta.questid .. " qlogid " .. storedMeta.qlogid)
           end
           
