@@ -46,6 +46,11 @@ local function ClampAlpha(alpha)
   return alpha
 end
 
+local function GetPartySync()
+  if not QuestieLoader or not QuestieLoader.ImportModule then return nil end
+  return QuestieLoader:ImportModule("QuestiePartySync")
+end
+
 function QuestieFocus:GetDimAlpha()
   local config = GetConfig()
   if config["focusfade"] == "0" then
@@ -354,11 +359,6 @@ function QuestieFocus:Initialize()
 end
 
 QuestieFocus:Initialize()
-
-local function GetPartySync()
-  if not QuestieLoader or not QuestieLoader.ImportModule then return nil end
-  return QuestieLoader:ImportModule("QuestiePartySync")
-end
 
 local function AdjustRemoteCount(self, questId, delta)
   if not questId then return end
