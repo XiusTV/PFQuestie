@@ -1,3 +1,11 @@
+### Support: [Buy Me A Coffee](https://buymeacoffee.com/xius)
+
+**Other WotLK 3.3.5 Addons by XiusTV:**
+
+* [ElvUI VibeUI](https://github.com/XiusTV/Elvui-VibeUI) - Modern ElvUI configuration
+* [Modern TSM](https://github.com/XiusTV/Modern-TSM-335) - Performance-optimized TradeSkillMaster
+* [PFQuestie](https://github.com/XiusTV/PFQuestie) - Rework of Pfquest and Questie integrated together!
+
 # pfQuest Enhanced (WotLK 3.3.5)
 
 pfQuest Enhanced is a modernized fork of Shagu's legendary quest database addon, rebuilt for Wrath of the Lich King 3.3.5 and tightly integrated with Questie-style UI components. It blends pfQuest's comprehensive database tooling with Questie's tracker, tooltip, and party sync experience to deliver an all-in-one questing suite for modern private servers.
