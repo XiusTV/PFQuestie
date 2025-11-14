@@ -35,6 +35,31 @@ end
 
 MigrateLegacyBronzebeardConfig()
 
+local tocSuffixes = { "", "-master", "-tbc", "-wotlk" }
+
+local function pfQuestGetDisplayVersion()
+  if pfQuestConfig and pfQuestConfig.version and pfQuestConfig.version ~= "" then
+    return pfQuestConfig.version
+  end
+
+  for _, suffix in pairs(tocSuffixes) do
+    local current = string.format("pfQuest%s", suffix)
+    local _, title = GetAddOnInfo(current)
+    if title then
+      local metadata = GetAddOnMetadata(current, "Version")
+      if metadata and metadata ~= "" then
+        return tostring(metadata)
+      end
+    end
+  end
+
+  return "0.9.5"
+end
+
+local function pfQuestGetVersionLabel()
+  return string.format("|cff33ffccVersion %s (Beta)|r", pfQuestGetDisplayVersion())
+end
+
 local function GetQuestLinksModule()
   if QuestieLoader and QuestieLoader.ImportModule then
     local ok, module = pcall(QuestieLoader.ImportModule, QuestieLoader, "QuestieQuestLinks")
@@ -117,17 +142,6 @@ pfQuest_defconfig = {
     default = "0", type = "checkbox", config = "favonlogin" },
   { text = L["Minimum Item Drop Chance"],
     default = "1", type = "text", config = "mindropchance" },
-
-{ text = L["Credits"] or "Credits",
-  default = nil, type = "header" },
-  { text = (L["Original Creator"] or "Original Creator") .. ": |cff33ffccShagu|r",
-    default = "", type = "info", url = "https://github.com/shagu/pfQuest" },
-  { text = (L["Modernization, Integrations, and More"] or "Modernization, Integrations, and More") .. ": |cff33ffccXiusTV|r",
-    default = "", type = "info", url = "https://github.com/XiusTV" },
-  { text = L["XiusTV on Twitch"] or "XiusTV on Twitch",
-    default = "", type = "info", url = "https://www.twitch.tv/xiustv" },
-  { text = (L["Contributors"] or "Contributors") .. ": |cff33ffccBennylavaa|r",
-    default = "", type = "info", url = "https://github.com/Bennylavaa/pfQuest-epoch" },
 
 { text = L["Questing"],
   default = nil, type = "header" },
@@ -449,6 +463,19 @@ pfQuest_defconfig = {
     default = "1", type = "button", func = reset.cache },
   { text = L["Reset Everything"],
     default = "1", type = "button", func = reset.everything },
+
+{ text = L["Credits"] or "Credits",
+  default = nil, type = "header" },
+  { text = (L["Version"] or "Version") .. ": |cff33ffcc" .. pfQuestGetDisplayVersion() .. "|r",
+    default = "", type = "info" },
+  { text = (L["Original Creator"] or "Original Creator") .. ": |cff33ffccShagu|r",
+    default = "", type = "info", url = "https://github.com/shagu/pfQuest" },
+  { text = (L["Modernization, Integrations, and More"] or "Modernization, Integrations, and More") .. ": |cff33ffccXiusTV|r",
+    default = "", type = "info", url = "https://github.com/XiusTV" },
+  { text = L["XiusTV on Twitch"] or "XiusTV on Twitch",
+    default = "", type = "info", url = "https://www.twitch.tv/xiustv" },
+  { text = (L["Contributors"] or "Contributors") .. ": |cff33ffccBennylavaa|r",
+    default = "", type = "info", url = "https://github.com/Bennylavaa/pfQuest-epoch" },
 }
 
 StaticPopupDialogs["PFQUEST_RESET"] = {
@@ -511,8 +538,7 @@ pfUI.api.CreateBackdrop(pfQuestConfig, nil, true, 0.75)
 table.insert(UISpecialFrames, "pfQuestConfig")
 
 -- detect current addon path
-local tocs = { "", "-master", "-tbc", "-wotlk" }
-for _, name in pairs(tocs) do
+for _, name in pairs(tocSuffixes) do
   local current = string.format("pfQuest%s", name)
   local _, title = GetAddOnInfo(current)
   if title then
@@ -569,7 +595,7 @@ pfUI.api.SkinButton(pfQuestConfig.save)
 
 pfQuestConfig.versionLabel = pfQuestConfig:CreateFontString(nil, "LOW", "GameFontHighlight")
 pfQuestConfig.versionLabel:SetPoint("BOTTOM", pfQuestConfig, "BOTTOM", 0, 24)
-pfQuestConfig.versionLabel:SetText("|cff33ffccVersion 0.9 (Beta)|r")
+pfQuestConfig.versionLabel:SetText(pfQuestGetVersionLabel())
 
 function pfQuestConfig:LoadConfig()
   if not pfQuest_config then pfQuest_config = {} end
@@ -1358,8 +1384,8 @@ do -- welcome/init popup dialog
   pfUI.api.CreateBackdrop(pfQuestInit, nil, true, 0.85)
 
   pfQuestInit.versionText = pfQuestInit:CreateFontString(nil, "LOW", "GameFontHighlight")
-  pfQuestInit.versionText:SetPoint("CENTER", pfQuestInit, "CENTER", 0, -10)
-  pfQuestInit.versionText:SetText("|cff33ffccVersion 0.9 (Beta)|r")
+pfQuestInit.versionText:SetPoint("CENTER", pfQuestInit, "CENTER", 0, -10)
+pfQuestInit.versionText:SetText(pfQuestGetVersionLabel())
 
   -- welcome title
   pfQuestInit.title = pfQuestInit:CreateFontString("Status", "LOW", "GameFontWhite")
