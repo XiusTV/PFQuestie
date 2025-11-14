@@ -100,7 +100,15 @@ pfQuest_defconfig = {
   { text = L["Enable World Map Menu"],
     default = "1", type = "checkbox", config = "worldmapmenu" },
   { text = L["Enable Minimap Button"],
-    default = "1", type = "checkbox", config = "minimapbutton" },
+    default = "1", type = "checkbox", config = "minimapbutton", onupdate = function()
+      if pfQuestIcon then
+        if pfQuest_config["minimapbutton"] == "1" then
+          pfQuestIcon:Show()
+        else
+          pfQuestIcon:Hide()
+        end
+      end
+    end },
   { text = L["Enable Questie Menu"] or "Enable Questie Menu",
     default = "1", type = "checkbox", config = "enableQuestieMenu" },
   { text = L["Show Database IDs"],
@@ -479,8 +487,8 @@ pfQuestConfig:SetScript("OnEvent", function()
       pfQuest_history = {}
     end
 
-    if pfBrowserIcon and pfQuest_config["minimapbutton"] == "0" then
-      pfBrowserIcon:Hide()
+    if pfQuestIcon and pfQuest_config["minimapbutton"] == "0" then
+      pfQuestIcon:Hide()
     end
   end
 end)

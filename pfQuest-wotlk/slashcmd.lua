@@ -24,6 +24,8 @@ SlashCmdList["PFDB"] = function(input, editbox)
     DEFAULT_CHAT_FRAME:AddMessage("|cff33ffcc/db|cffffffff quests |cffcccccc - " .. pfQuest_Loc["Show all quests on map"])
     DEFAULT_CHAT_FRAME:AddMessage("|cff33ffcc/db|cffffffff clean |cffcccccc - " .. pfQuest_Loc["Clean Map"])
     DEFAULT_CHAT_FRAME:AddMessage("|cff33ffcc/db|cffffffff reset |cffcccccc - " .. pfQuest_Loc["Reset Map"])
+    DEFAULT_CHAT_FRAME:AddMessage("|cff33ffcc/db|cffffffff cache clear |cffcccccc - Clear quest/map caches")
+    DEFAULT_CHAT_FRAME:AddMessage("|cff33ffcc/db|cffffffff perf <cmd> |cffcccccc- Performance snapshots (snapshot/report/clear)")
     DEFAULT_CHAT_FRAME:AddMessage("|cff33ffcc/db|cffffffff scan |cffcccccc - " .. pfQuest_Loc["Scan the server for custom items"])
     DEFAULT_CHAT_FRAME:AddMessage("|cff33ffcc/db|cffffffff query |cffcccccc - " .. pfQuest_Loc["Query the server for completed quests"])
     DEFAULT_CHAT_FRAME:AddMessage("|cff33ffcc/db|cffffffff menu |cffcccccc - Show Questie Menu")
@@ -47,6 +49,62 @@ SlashCmdList["PFDB"] = function(input, editbox)
         arg2 = arg2 .. " "
       end
     end
+  end
+
+  -- argument: cache
+  if (arg1 == "cache") then
+    local sub = (commandlist[2] or ""):lower()
+
+    if sub == "clear" then
+      if pfQuest and pfQuest.ClearCaches then
+        pfQuest:ClearCaches("manual")
+      else
+        if pfDatabase and pfDatabase.ClearCaches then
+          pfDatabase:ClearCaches()
+        end
+        if pfMap and pfMap.ClearNodeCaches then
+          pfMap:ClearNodeCaches("manual", true)
+        end
+      end
+
+      DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpfQuest:|r Cleared cached quest and map data.")
+    else
+      DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpfQuest Cache Commands:")
+      DEFAULT_CHAT_FRAME:AddMessage("|cff33ffcc/db cache clear|cffffffff - Flush quest, search, and map caches")
+    end
+
+    return
+  end
+
+  -- argument: perf
+  if (arg1 == "perf") then
+    local ensurePerf = type(pfQuestPerf_Ensure) == "function" and pfQuestPerf_Ensure or nil
+    local perfModule = ensurePerf and ensurePerf() or pfQuestPerf
+
+    if not perfModule then
+      DEFAULT_CHAT_FRAME:AddMessage(string.format("|cff33ffccpfQuest:|r Performance harness unavailable (ensure=%s, perf=%s). Captured globals: pfQuestPerf_Ensure=%s, pfQuestPerf=%s.",
+        tostring(pfQuestPerf_Ensure), tostring(pfQuestPerf), tostring(_G.pfQuestPerf_Ensure), tostring(_G.pfQuestPerf)))
+      return
+    end
+
+    pfQuestPerf = perfModule
+
+    local sub = (commandlist[2] or ""):lower()
+    if sub == "snapshot" then
+      local label
+      if #commandlist > 2 then
+        label = table.concat(commandlist, " ", 3)
+      end
+      perfModule:Snapshot(label)
+    elseif sub == "report" then
+      perfModule:Report()
+    elseif sub == "clear" then
+      perfModule:Clear()
+    else
+      perfModule:Help()
+    end
+
+    return
   end
 
   -- argument: debug
@@ -277,8 +335,7 @@ SlashCmdList["PFDB"] = function(input, editbox)
 
   -- argument: lock
   if (arg1 == "lock") then
-    pfQuest_config.lock = not pfQuest_config.lock
-    DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpf|cffffffffQuest Tracker: " .. ( pfQuest_config.lock and "Locked" or "Unlocked" ))
+    DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpf|cffffffffQuest Tracker: Locking is managed through the Questie tracker settings.")
     return
   end
 

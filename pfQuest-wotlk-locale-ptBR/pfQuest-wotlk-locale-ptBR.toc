@@ -1,0 +1,10 @@
+## Interface: 30300
+## Title: pfQuest Locale - ptBR
+## Notes: pfQuest locale data (ptBR)
+## Author: Shagu
+## LoadOnDemand: 1
+## Dependencies: pfQuest-wotlk
+
+..\pfQuest-wotlk\init\ptBR.xml
+..\pfQuest-wotlk\init\ptBR-tbc.xml
+

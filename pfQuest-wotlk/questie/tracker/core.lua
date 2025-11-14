@@ -39,9 +39,30 @@ local MAX_TRACKER_FADE_ALPHA = 0.35
 local math_max = math.max
 local math_min = math.min
 
+local GetPfConfig
+
 local function GetPfConfig()
   pfQuest_config = pfQuest_config or {}
   return pfQuest_config
+end
+
+local function SaveTrackerPosition(frame)
+  if not frame then return end
+  local point, relativeTo, relativePoint, xOfs, yOfs = frame:GetPoint(1)
+  if point and relativeTo then
+    local cfg = GetPfConfig()
+    cfg.trackerpos = { point, relativeTo:GetName() or "UIParent", relativePoint, xOfs, yOfs }
+  end
+end
+
+local function AnchorTrackerTop(frame)
+  if not frame or not frame.GetTop then return end
+  local top = frame:GetTop()
+  local left = frame:GetLeft()
+  if not top or not left then return end
+  frame:ClearAllPoints()
+  frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+  SaveTrackerPosition(frame)
 end
 
 local function IsPfConfigEnabled(key)
@@ -331,12 +352,7 @@ function TrackerBaseFrame.Initialize()
     if self.isMoving then
       self:StopMovingOrSizing()
       self.isMoving = false
-      -- Save tracker position
-      local point, relativeTo, relativePoint, xOfs, yOfs = self:GetPoint(1)
-      if point and relativeTo then
-        local cfg = GetPfConfig()
-        cfg.trackerpos = { point, relativeTo:GetName() or "UIParent", relativePoint, xOfs, yOfs }
-      end
+      SaveTrackerPosition(self)
     end
   end)
 
@@ -425,10 +441,16 @@ function TrackerHeaderFrame.Initialize(parent)
 
     if cfg["trackercollapsed"] == "1" then
       -- Collapse: hide quest frame and shrink base without moving anchors
+      AnchorTrackerTop(baseFrame)
       if QuestieTracker.questFrame then
+        QuestieTracker.questFrame._expandedHeight = QuestieTracker.questFrame:GetHeight()
         QuestieTracker.questFrame:Hide()
+        QuestieTracker.questFrame:SetHeight(0.0001)
         if QuestieTracker.questFrame.controlColumn then
           QuestieTracker.questFrame.controlColumn:Hide()
+        end
+        if QuestieTracker.questFrame.scroll then
+          QuestieTracker.questFrame.scroll:Hide()
         end
       end
       if not baseFrame._originalHeight then
@@ -441,10 +463,15 @@ function TrackerHeaderFrame.Initialize(parent)
       self:SetNormalTexture("Interface\\Buttons\\UI-Panel-ExpandButton-Up")
     else
       -- Expand: show quest frame and restore prior height
+      AnchorTrackerTop(baseFrame)
       if QuestieTracker.questFrame then
         QuestieTracker.questFrame:Show()
+        QuestieTracker.questFrame:SetHeight(QuestieTracker.questFrame._expandedHeight or QuestieTracker.questFrame:GetHeight())
         if QuestieTracker.questFrame.controlColumn then
           QuestieTracker.questFrame.controlColumn:Show()
+        end
+        if QuestieTracker.questFrame.scroll then
+          QuestieTracker.questFrame.scroll:Show()
         end
       end
       local restoredHeight = baseFrame._originalHeight or Questie.db.profile.trackerHeight or baseFrame:GetHeight()
@@ -496,23 +523,33 @@ function TrackerQuestFrame.Initialize(parent, header)
   controlColumn.bg:SetAllPoints()
   controlColumn.bg:SetAlpha(0.3)
 
-  local scrollBar = _G["QuestieTrackerScrollFrameScrollBar"]
-  if scrollBar then
-    scrollBar:ClearAllPoints()
-    scrollBar:SetPoint("TOP", controlColumn, "TOP", 0, -22)
-    scrollBar:SetPoint("BOTTOM", controlColumn, "BOTTOM", 0, 24)
-  end
-
   local scrollUpButton = _G["QuestieTrackerScrollFrameScrollBarScrollUpButton"]
+  local scrollDownButton = _G["QuestieTrackerScrollFrameScrollBarScrollDownButton"]
+  local scrollBar = _G["QuestieTrackerScrollFrameScrollBar"]
+
   if scrollUpButton then
     scrollUpButton:ClearAllPoints()
-    scrollUpButton:SetPoint("TOP", controlColumn, "TOP", 0, -2)
+    scrollUpButton:SetPoint("TOP", controlColumn, "TOP", 0, -4)
   end
 
-  local scrollDownButton = _G["QuestieTrackerScrollFrameScrollBarScrollDownButton"]
   if scrollDownButton then
     scrollDownButton:ClearAllPoints()
-    scrollDownButton:SetPoint("BOTTOM", controlColumn, "BOTTOM", 0, 22)
+    scrollDownButton:SetPoint("BOTTOM", controlColumn, "BOTTOM", 0, 4)
+  end
+
+  if scrollBar then
+    scrollBar:ClearAllPoints()
+    if scrollUpButton then
+      scrollBar:SetPoint("TOP", scrollUpButton, "BOTTOM", 0, -4)
+    else
+      scrollBar:SetPoint("TOP", controlColumn, "TOP", 0, -24)
+    end
+
+    if scrollDownButton then
+      scrollBar:SetPoint("BOTTOM", scrollDownButton, "TOP", 0, 4)
+    else
+      scrollBar:SetPoint("BOTTOM", controlColumn, "BOTTOM", 0, 24)
+    end
   end
 
   if parent.resizer then
@@ -913,73 +950,119 @@ function TrackerFadeTicker:Refresh()
   self:Apply(fadeHoverCount > 0)
 end
 
-function TrackerFadeTicker.Initialize(frame, header, questFrame)
-  TrackerFadeTicker.frame = frame
-  TrackerFadeTicker.header = header
-  TrackerFadeTicker.questFrame = questFrame
-  TrackerFadeTicker.extraFrames = setmetatable({}, { __mode = "k" })
-  fadeHoverCount = 0
+local defaultTrackerEventFrame
+local QueueDefaultTrackerHide
+local HideDefaultTrackerSafely
+local trackerUpdateQueueFrame
+local pendingTrackerUpdate = false
 
-  AttachFadeHooks(frame)
-  AttachFadeHooks(header)
-  if frame and frame.resizer then
-    AttachFadeHooks(frame.resizer)
+local function IsPlayerInCombat()
+  if InCombatLockdown and InCombatLockdown() then
+    return true
   end
-  if questFrame then
-    AttachFadeHooks(questFrame)
-    if questFrame.scroll then
-      AttachFadeHooks(questFrame.scroll)
-    end
-    if questFrame.content then
-      AttachFadeHooks(questFrame.content)
-    end
-    if questFrame.controlColumn then
-      AttachFadeHooks(questFrame.controlColumn)
-    end
+  if UnitAffectingCombat then
+    return UnitAffectingCombat("player") and true or false
   end
-
-  TrackerFadeTicker:Refresh()
+  return false
 end
 
-function TrackerBaseFrame:SetSafePoint()
-  -- placeholder for future reposition logic
+-- Defer tracker updates until out of combat
+local function QueueTrackerUpdate()
+  if not trackerUpdateQueueFrame then
+    trackerUpdateQueueFrame = CreateFrame("Frame")
+    trackerUpdateQueueFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    trackerUpdateQueueFrame:SetScript("OnEvent", function()
+      if not IsPlayerInCombat() and pendingTrackerUpdate then
+        pendingTrackerUpdate = false
+        if QuestieTracker.started and QuestieTracker.Update then
+          QuestieTracker:Update()
+        end
+      end
+    end)
+  end
+  pendingTrackerUpdate = true
 end
 
-local function DisableDefaultTracker()
-  local frame = compat.QuestWatchFrame or WatchFrame
-  if not frame then return end
+QueueDefaultTrackerHide = function()
+  if not QuestieTracker._defaultTracker or not QuestieTracker._defaultTracker.frame then return end
+  QuestieTracker._defaultTracker.pendingHide = true
+  if not defaultTrackerEventFrame then
+    defaultTrackerEventFrame = CreateFrame("Frame")
+    defaultTrackerEventFrame:SetScript("OnEvent", function()
+      if not IsPlayerInCombat() then
+        defaultTrackerEventFrame:UnregisterAllEvents()
+        if QuestieTracker._defaultTracker then
+          QuestieTracker._defaultTracker.pendingHide = nil
+          local frame = QuestieTracker._defaultTracker.frame
+          local parent = QuestieTracker._defaultTracker.hiddenParent
+          if frame and parent then
+            frame:SetParent(parent)
+            frame:SetAlpha(0)
+            frame:EnableMouse(false)
+          end
+        end
+      end
+    end)
+  end
+  defaultTrackerEventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+end
 
-  -- Check if init.lua already set this up
-  if QuestieTracker._defaultTracker and QuestieTracker._defaultTracker.frame then
-    -- Already initialized, just ensure it's hidden
-    frame:SetParent(QuestieTracker._defaultTracker.hiddenParent)
-    frame:Hide()
+HideDefaultTrackerSafely = function(frame)
+  if not QuestieTracker._defaultTracker then
     return
   end
 
-  QuestieTracker._defaultTracker = QuestieTracker._defaultTracker or {}
+  local parent = QuestieTracker._defaultTracker.hiddenParent
+  if not parent then
+    return
+  end
+
+  if IsPlayerInCombat() then
+    QueueDefaultTrackerHide()
+    return
+  end
+
+  QuestieTracker._defaultTracker.pendingHide = nil
+  frame:SetParent(parent)
+  frame:SetAlpha(0)
+  frame:EnableMouse(false)
+end
+
+local function DisableDefaultTracker()
+  -- Hide the default Blizzard WatchFrame when our tracker is enabled
+  local watchFrame = compat.QuestWatchFrame or WatchFrame
+  if not watchFrame then return end
+  
+  -- Initialize default tracker info if needed
+  if not QuestieTracker._defaultTracker then
+    QuestieTracker._defaultTracker = {}
+  end
+  
   if not QuestieTracker._defaultTracker.frame then
-    QuestieTracker._defaultTracker.frame = frame
-    QuestieTracker._defaultTracker.onShow = frame:GetScript("OnShow")
-    QuestieTracker._defaultTracker.parent = frame:GetParent()
+    QuestieTracker._defaultTracker.frame = watchFrame
     QuestieTracker._defaultTracker.hiddenParent = QuestieTracker._defaultTracker.hiddenParent or CreateFrame("Frame")
     QuestieTracker._defaultTracker.hiddenParent:Hide()
   end
-
-  frame:SetParent(QuestieTracker._defaultTracker.hiddenParent)
-  frame:Hide()
-  frame:SetScript("OnShow", frame.Hide)
-  frame:HookScript("OnShow", frame.Hide)
+  
+  -- Hide safely (will queue if in combat)
+  HideDefaultTrackerSafely(watchFrame)
 end
 
 local function RestoreDefaultTracker()
-  local info = QuestieTracker._defaultTracker
-  if not info or not info.frame then return end
-
-  info.frame:SetScript("OnShow", info.onShow)
-  info.frame:SetParent(info.parent or UIParent)
-  info.frame:Show()
-  QuestieTracker._defaultTracker = nil
+  -- Restore the default Blizzard WatchFrame when our tracker is disabled
+  if not QuestieTracker._defaultTracker or not QuestieTracker._defaultTracker.frame then
+    return
+  end
+  
+  local watchFrame = QuestieTracker._defaultTracker.frame
+  local originalParent = UIParent
+  
+  -- Only restore if not in combat
+  if not IsPlayerInCombat() then
+    watchFrame:SetParent(originalParent)
+    watchFrame:SetAlpha(1)
+    watchFrame:EnableMouse(true)
+  end
 end
 
 function QuestieTracker.Initialize()
@@ -1006,8 +1089,16 @@ function QuestieTracker.Initialize()
   QuestieTracker:CaptureAnchorDefaults()
   QuestieTracker.hasActiveQuests = false
 
-  TrackerLinePool.Initialize(quests)
-  TrackerFadeTicker.Initialize(base, header, quests)
+  if TrackerLinePool and TrackerLinePool.Initialize then
+    TrackerLinePool.Initialize(quests)
+  else
+    pfQuest:Debug("TrackerLinePool.Initialize missing")
+  end
+  if TrackerFadeTicker and TrackerFadeTicker.Initialize then
+    TrackerFadeTicker.Initialize(base, header, quests)
+  else
+    pfQuest:Debug("TrackerFadeTicker.Initialize missing")
+  end
 
   QuestieTracker.started = true
   QuestieTracker.baseFrame = base
@@ -1024,6 +1115,7 @@ function QuestieTracker.Initialize()
       base.resizer:Hide()
     end
     header.collapseButton:SetNormalTexture("Interface\\Buttons\\UI-Panel-ExpandButton-Up")
+    AnchorTrackerTop(base)
   end
 
   if not QuestieTracker.eventFrame then
@@ -1043,6 +1135,17 @@ function QuestieTracker.Initialize()
   end)
 
   DisableDefaultTracker()
+  
+  -- Hook WatchFrame to prevent it from showing
+  local watchFrame = compat.QuestWatchFrame or WatchFrame
+  if watchFrame then
+    watchFrame:HookScript("OnShow", function(self)
+      if QuestieTracker.started and QuestieTracker._defaultTracker then
+        -- Re-hide if it tries to show
+        HideDefaultTrackerSafely(self)
+      end
+    end)
+  end
 
   QuestieTracker:OnSizeApplied(base:GetWidth(), base:GetHeight(), true)
   QuestieTracker:Update()
@@ -1088,6 +1191,12 @@ end
 
 function QuestieTracker:Update()
   if not self.started then return end
+  
+  -- Defer updates during combat to avoid taint
+  if IsPlayerInCombat() then
+    QueueTrackerUpdate()
+    return
+  end
 
   TrackerLinePool:ReleaseAll()
 
@@ -1391,6 +1500,4 @@ function QuestieTracker:Toggle(force)
     self:Disable()
   end
 end
-
-return QuestieTracker
 

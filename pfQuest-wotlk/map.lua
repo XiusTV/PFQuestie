@@ -1,6 +1,12 @@
 -- multi api compat
 local compat = pfQuestCompat
 
+local wipe = table.wipe or function(tbl)
+  for key in pairs(tbl) do
+    tbl[key] = nil
+  end
+end
+
 -- fake the pfQuest minimap node names to Gatherer names,
 -- if any minimap-breaking addon collector is found.
 local nodename = "pfMiniMapPin"
@@ -297,6 +303,25 @@ pfMap.pins = {}
 pfMap.mpins = {}
 pfMap.drawlayer = Minimap
 pfMap.unifiedcache = unifiedcache
+
+local cacheResetThrottle = 0
+function pfMap:ClearNodeCaches(reason, force)
+  local now = GetTime()
+  if not force and cacheResetThrottle > now then
+    return
+  end
+
+  cacheResetThrottle = now + 0.2
+
+  wipe(unifiedcache)
+  wipe(similar_nodes)
+
+  if pfQuest and pfQuest.Debug and pfQuest_config and pfQuest_config.debug then
+    pfQuest:Debug("Clear Map|cff33ffcc Cache|r" .. (reason and (" [" .. reason .. "]") or ""))
+  end
+
+  self.queue_update = now
+end
 
 pfMap.EnsureFocusGlow = EnsureFocusGlow
 pfMap.ClearNodePath = function(self, frame)
@@ -1213,21 +1238,22 @@ pfMap:RegisterEvent("ZONE_CHANGED")
 pfMap:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 pfMap:RegisterEvent("MINIMAP_ZONE_CHANGED")
 pfMap:RegisterEvent("WORLD_MAP_UPDATE")
+pfMap:RegisterEvent("QUEST_LOG_UPDATE")
 pfMap:SetScript("OnEvent", function()
-  -- save current zone
-  zone = GetCurrentMapZone()
-
-  -- set map to current zone when possible
   if event == "ZONE_CHANGED" or event == "MINIMAP_ZONE_CHANGED" or event == "ZONE_CHANGED_NEW_AREA" then
+    zone = GetCurrentMapZone()
     if not WorldMapFrame:IsShown() then
       SetMapToCurrentZone()
     end
-  end
-
-  -- update nodes on world map changes
-  if event == "WORLD_MAP_UPDATE" and last_zone ~= zone then
+    pfMap:ClearNodeCaches("zone-change")
+  elseif event == "QUEST_LOG_UPDATE" then
+    pfMap:ClearNodeCaches("quest-log")
+  elseif event == "WORLD_MAP_UPDATE" then
+    zone = GetCurrentMapZone()
+    if last_zone ~= zone then
     pfMap.UpdateNodes()
     last_zone = zone
+    end
   end
 end)
 

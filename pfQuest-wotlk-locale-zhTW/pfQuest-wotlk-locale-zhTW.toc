@@ -1,0 +1,10 @@
+## Interface: 30300
+## Title: pfQuest Locale - zhTW
+## Notes: pfQuest locale data (zhTW)
+## Author: Shagu
+## LoadOnDemand: 1
+## Dependencies: pfQuest-wotlk
+
+..\pfQuest-wotlk\init\zhTW.xml
+..\pfQuest-wotlk\init\zhTW-tbc.xml
+

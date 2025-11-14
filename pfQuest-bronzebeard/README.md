@@ -9,95 +9,60 @@ Support: [Buy Me A Coffee](https://buymeacoffee.com/xius)
 
 ---
 
-# pfQuest-BronzeBeard Enhanced
+# pfQuest-Bronzebeard Enhanced
 
-**Server-specific quest database extension for the Bronzebeard realm on Warcraft Reborn with automated quest capture system.**
+**Server-specific quest database extension for the Bronzebeard realm on Warcraft Reborn, built on the modern pfQuest Enhanced WotLK fork.**
 
 ## About This Branch
 
-This is a **custom fork maintained exclusively by XiusTV** for the Ascension/Warcraft Reborn Bronzebeard realm. This branch includes server-specific quest data, custom NPC spawns, and specialized database overrides for WoW 3.3.5.
+This branch bundles all pfQuest Enhanced upgrades (a Questie-integrated tracker, durability/VoiceOver anchoring, enhanced quest links, auto questing, map improvements, and party sync utilities) together with Bronzebeard-only database overrides so Ascension players get a single drop-in package for WotLK 3.3.5.\[1\]
 
-**⚠️ This is an independent project.** The original pfQuest developers (Shagu and contributors) are not involved with this branch.
+**⚠️ Independent maintenance notice.** The original pfQuest maintainers (Shagu and contributors) are not involved with this realm-specific distribution.
 
-## 🌟 Enhanced Features
+## 🌟 Key Features
 
-### Quest Capture System
-This version includes an **automated quest learning system**:
-
-- ✅ **Automatic quest detection** - Captures quest data when you accept new quests
-- ✅ **NPC tracking** - Records quest giver and turn-in NPC locations with accurate zone IDs
-- ✅ **Objective tracking** - Monitors where you complete quest objectives
-- ✅ **Quest item sources** - Tracks which NPCs drop quest items
-- ✅ **Reward data** - Captures quest rewards and choice rewards
-- ✅ **Export functionality** - Generate Lua database files from captured quests
-- ✅ **External merger tool** - Permanently integrates captured data into addon database
-
-### What is pfQuest-BronzeBeard?
-
-An extension of pfQuest that provides accurate quest and spawn data specifically for the Bronzebeard realm, including:
-
-- Custom quest locations and objectives
-- Server-specific NPC spawn points
-- Bronzebeard realm database overrides
-- Automated quest capture for missing quests
-- Compatibility with WotLK 3.3.5 client
+- **Questie-style tracker** with quest focus controls, inline quest items, configurable idle fade, and a resize handle so the tracker looks and feels like Questie while running on pfQuest data.\[1\]
+- **Enhanced quest links** that inject difficulty colors, safe chat truncation, and tooltips so sharing quests in chat is more reliable.\[1\]
+- **Quest giver patrol paths & map overlays** so you can see roaming NPC routes directly in the world map when the database supports it.\[1\]
+- **Auto questing toolkit** with accept/turn-in, daily-only mode, exclusion lists, and quest log utilities to streamline repeat runs.\[1\]
+- **Party sync & tooltip upgrades** via the Questie-style party module, providing progress hints for grouped players.\[1\]
+- **Bronzebeard-specific database layer** that ships custom NPC spawns, zone coordinates, and quest metadata required for the Ascension realm.
 
 ## Installation
 
-1. Download the latest release or clone this repository
-2. Extract to `Wow-Directory\Interface\AddOns\pfQuest-bronzebeard`
-3. Restart WoW
-4. Type `/db show` to open the database browser
+1. Download the latest release or clone this repository.
+2. Copy the folders `pfQuest-wotlk` and `pfQuest-bronzebeard` into `World of Warcraft\Interface\AddOns\`.
+3. Restart WoW and enable both addons on the character select screen.
+4. Use `/pfq config` or `/pfquest config` to open the configuration UI, and `/db show` to open the database browser.
 
 ## Commands
 
-### Basic Commands
-- `/db show` - Open the quest database browser
-- `/db object [name]` - Search for objects/NPCs
-- `/db quest [name]` - Search for quests
-- `/db item [name]` - Search for items
-
-### Quest Capture Commands
-- `/pfquest capture` - Open quest capture monitor UI
-- `/pfquest capture scan` - Scan quest log for new quests
-- `/pfquest capture export` - Export captured quests as Lua
-- `/pfquest capture clear` - Clear all captured quest data
-- `/pfquest capture status` - Show capture system status
-
-## External Merger Tool
-
-The quest capture system saves data to SavedVariables but **does not auto-inject** (to prevent breaking quest objectives). To make captured quests permanent:
-
-1. Navigate to `Interface\pfQuest-Tools\dist\`
-2. Run `pfQuest Merger Tool.exe` (or use Python version in `Merger Via CMD\`)
-3. Click "Start Monitoring"
-4. Play WoW - capture quests normally
-5. When you close WoW, the tool automatically merges captured data into the addon database
-6. Next time you load WoW, captured quests are available for all characters!
-
-This approach ensures captured quests are properly integrated without corrupting the quest objective system.
+- `/pfq config` – Open the redesigned configuration interface.
+- `/db show` – Launch the database browser.
+- `/db object [name]`, `/db quest [name]`, `/db item [name]` – Search for specific entities.
+- `/pfquest tracker` – Toggle the Questie-style tracker.
 
 ## Requirements
 
-- World of Warcraft 3.3.5 (WotLK)
-- Bronzebeard realm (Warcraft Reborn)
+- World of Warcraft 3.3.5a client.
+- Bronzebeard realm (Warcraft Reborn / Ascension).
 
 ## Credits
 
-**This Branch:**
-- Developed and maintained by **XiusTV**
+**This Branch**
+- Maintained by **XiusTV** with Bronzebeard-specific overrides and QA.
 
-**Original pfQuest:**
-- Created by **Shagu** - [Original pfQuest Repository](https://github.com/shagu/pfQuest)
-- Database contributions from VMaNGOS and CMaNGOS projects
-
-This project uses the pfQuest framework created by Shagu. All Bronzebeard-specific data and modifications are by XiusTV.
+**Upstream pfQuest Enhanced**
+- Based on **pfQuest** by **Shagu** with modernization by the PFQuestie project.\[1\]
+- Database contributions from the VMaNGOS and CMaNGOS projects.
 
 ## License
 
-This addon follows the same license as the original pfQuest project.
+This addon follows the same license as the upstream pfQuest project.
 
 ---
 
-**For issues specific to this Bronzebeard branch, please open an issue on this repository.**
+**Need help?** Ping the XiusTV community on Discord or open an issue in this repository.
+
+[1]: https://github.com/XiusTV/PFQuestie
 

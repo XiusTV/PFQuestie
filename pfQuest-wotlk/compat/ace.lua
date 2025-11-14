@@ -39,9 +39,6 @@ local needed = {
   "LibSharedMedia-3.0",
   "HereBeDragons-2.0",
   "HereBeDragons-Pins-2.0",
-  "LibDataBroker-1.1",
-  "LibDBIcon-1.0",
-  "LibUIDropDownMenu-4.0",
 }
 
 for _, name in ipairs(needed) do
@@ -86,9 +83,6 @@ pfQuestAce.ConfigCmd = libs["AceConfigCmd-3.0"]
 pfQuestAce.Media = libs["LibSharedMedia-3.0"]
 pfQuestAce.HBD = libs["HereBeDragons-2.0"]
 pfQuestAce.HBDPins = libs["HereBeDragons-Pins-2.0"]
-pfQuestAce.DataBroker = libs["LibDataBroker-1.1"]
-pfQuestAce.DBIcon = libs["LibDBIcon-1.0"]
-pfQuestAce.DropDown = libs["LibUIDropDownMenu-4.0"]
 
 pfQuestCompat.Ace = pfQuestAce
 

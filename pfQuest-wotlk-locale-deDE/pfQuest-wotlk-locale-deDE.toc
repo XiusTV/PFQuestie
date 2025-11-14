@@ -1,0 +1,10 @@
+## Interface: 30300
+## Title: pfQuest Locale - deDE
+## Notes: pfQuest locale data (deDE)
+## Author: Shagu
+## LoadOnDemand: 1
+## Dependencies: pfQuest-wotlk
+
+..\pfQuest-wotlk\init\deDE.xml
+..\pfQuest-wotlk\init\deDE-tbc.xml
+

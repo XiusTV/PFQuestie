@@ -1,0 +1,10 @@
+## Interface: 30300
+## Title: pfQuest Locale - ruRU
+## Notes: pfQuest locale data (ruRU)
+## Author: Shagu
+## LoadOnDemand: 1
+## Dependencies: pfQuest-wotlk
+
+..\pfQuest-wotlk\init\ruRU.xml
+..\pfQuest-wotlk\init\ruRU-tbc.xml
+

@@ -12,17 +12,17 @@ do -- minimap icon
   pfQuestIcon:SetHighlightTexture('Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight')
   pfQuestIcon:SetPoint("TOPLEFT", Minimap, "TOPLEFT", 0, 0)
 
-  pfQuestIcon:SetScript("OnDragStart", function()
+  pfQuestIcon:SetScript("OnDragStart", function(self)
     if IsShiftKeyDown() then
-      this:StartMoving()
+      self:StartMoving()
     end
   end)
 
-  pfQuestIcon:SetScript("OnDragStop", function()
-    this:StopMovingOrSizing()
+  pfQuestIcon:SetScript("OnDragStop", function(self)
+    self:StopMovingOrSizing()
   end)
 
-  pfQuestIcon:SetScript("OnClick", function()
+  pfQuestIcon:SetScript("OnClick", function(self)
     if pfQuestMenu:IsShown() then
       pfQuestMenu:Hide()
     else
@@ -30,17 +30,14 @@ do -- minimap icon
     end
   end)
 
-  pfQuestIcon:SetScript("OnEnter", function()
-    GameTooltip:SetOwner(this, ANCHOR_BOTTOMLEFT)
+  pfQuestIcon:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
     GameTooltip:SetText("|cff33ffccpf|rQuest", 1, 1, 1, 1)
     GameTooltip:AddDoubleLine(pfQuest_Loc["Left-Click"], pfQuest_Loc["Shortcut Menu"], 1, 1, 1, 1, 1, 1)
     GameTooltip:AddDoubleLine(pfQuest_Loc["Shift-Click"], pfQuest_Loc["Move Button"], 1, 1, 1, 1, 1, 1)
     GameTooltip:Show()
   end)
-
-  pfQuestIcon:SetScript("OnLeave", function()
-    GameTooltip:Hide()
-  end)
+  pfQuestIcon:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
   pfQuestIcon.icon = pfQuestIcon:CreateTexture(nil, 'BACKGROUND')
   pfQuestIcon.icon:SetWidth(20)
@@ -54,6 +51,10 @@ do -- minimap icon
   pfQuestIcon.overlay:SetHeight(53)
   pfQuestIcon.overlay:SetTexture('Interface\\Minimap\\MiniMap-TrackingBorder')
   pfQuestIcon.overlay:SetPoint('TOPLEFT', 0,0)
+
+  if pfQuest_config and pfQuest_config["minimapbutton"] == "0" then
+    pfQuestIcon:Hide()
+  end
 end
 
 do -- tracking menu

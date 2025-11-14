@@ -1,0 +1,10 @@
+## Interface: 30300
+## Title: pfQuest Locale - esES
+## Notes: pfQuest locale data (esES)
+## Author: Shagu
+## LoadOnDemand: 1
+## Dependencies: pfQuest-wotlk
+
+..\pfQuest-wotlk\init\esES.xml
+..\pfQuest-wotlk\init\esES-tbc.xml
+

@@ -1,0 +1,10 @@
+## Interface: 30300
+## Title: pfQuest Locale - frFR
+## Notes: pfQuest locale data (frFR)
+## Author: Shagu
+## LoadOnDemand: 1
+## Dependencies: pfQuest-wotlk
+
+..\pfQuest-wotlk\init\frFR.xml
+..\pfQuest-wotlk\init\frFR-tbc.xml
+

@@ -3,9 +3,122 @@ local compat = pfQuestCompat
 
 pfDatabase = { icons = {} }
 
+local Cache = {}
+Cache.__index = Cache
+
+function Cache:Create(maxEntries)
+  local instance = setmetatable({}, self)
+  instance.maxEntries = maxEntries or 100
+  instance.size = 0
+  instance.lookup = {}
+  instance.head = nil
+  instance.tail = nil
+  return instance
+end
+
+function Cache:_detach(node)
+  local prev, next = node.prev, node.next
+
+  if prev then
+    prev.next = next
+  else
+    self.head = next
+  end
+
+  if next then
+    next.prev = prev
+  else
+    self.tail = prev
+  end
+
+  node.prev = nil
+  node.next = nil
+end
+
+function Cache:_prepend(node)
+  node.prev = nil
+  node.next = self.head
+
+  if self.head then
+    self.head.prev = node
+  end
+
+  self.head = node
+
+  if not self.tail then
+    self.tail = node
+  end
+end
+
+function Cache:_moveToFront(node)
+  if self.head == node then
+    return
+  end
+
+  self:_detach(node)
+  self:_prepend(node)
+end
+
+function Cache:Get(key)
+  local node = self.lookup[key]
+  if not node then
+    return nil
+  end
+
+  self:_moveToFront(node)
+  return node.value
+end
+
+function Cache:Set(key, value)
+  local node = self.lookup[key]
+  if node then
+    node.value = value
+    self:_moveToFront(node)
+    return
+  end
+
+  node = { key = key, value = value }
+  self.lookup[key] = node
+  self:_prepend(node)
+  self.size = self.size + 1
+
+  while self.size > self.maxEntries do
+    local tail = self.tail
+    if not tail then
+      break
+    end
+
+    self.lookup[tail.key] = nil
+    self:_detach(tail)
+    self.size = self.size - 1
+  end
+end
+
+function Cache:Clear()
+  self.lookup = {}
+  self.head = nil
+  self.tail = nil
+  self.size = 0
+end
+
+pfQuestCache = Cache
+
 local loc = GetLocale()
 local dbs = { "items", "quests", "quests-itemreq", "objects", "units", "zones", "professions", "areatrigger", "refloot" }
 local noloc = { items = true, quests = true, objects = true, units = true }
+
+local clusterCache = Cache:Create(200)
+local levenshteinCache = Cache:Create(500)
+
+pfDatabase.caches = {
+  cluster = clusterCache,
+  levenshtein = levenshteinCache,
+}
+
+function pfDatabase:ClearCaches()
+  clusterCache:Clear()
+  levenshteinCache:Clear()
+end
 
 pfDB.locales = {
   ["enUS"] = "English",
@@ -30,17 +143,16 @@ local function patchtable(base, diff)
   end
 end
 
--- Return the best cluster point for a coordiante table
 local best, neighbors = { index = 1, neighbors = 0 }, 0
-local cache, cacheindex = {}
 local ymin, ymax, xmin, ymax
 local function getcluster(tbl, name)
   local count = 0
   best.index, best.neighbors = 1, 0
-  cacheindex = string.format("%s:%s", name, table.getn(tbl))
+  local key = string.format("%s:%s", name, table.getn(tbl))
+  local cached = clusterCache:Get(key)
 
   -- calculate new cluster if nothing is cached
-  if not cache[cacheindex] then
+  if not cached then
     for index, data in pairs(tbl) do
       -- precalculate the limits, and compare directly.
       -- This way is much faster than the math.abs function.
@@ -61,10 +173,11 @@ local function getcluster(tbl, name)
       end
     end
 
-    cache[cacheindex] = { tbl[best.index][1] + .001, tbl[best.index][2] + .001, count }
+    cached = { tbl[best.index][1] + .001, tbl[best.index][2] + .001, count }
+    clusterCache:Set(key, cached)
   end
 
-  return cache[cacheindex][1], cache[cacheindex][2], cache[cacheindex][3]
+  return cached[1], cached[2], cached[3]
 end
 
 -- Detects if a non indexed table is empty
@@ -76,10 +189,20 @@ end
 -- Returns the levenshtein distance between two strings
 -- based on: https://gist.github.com/Badgerati/3261142
 local len1, len2, cost, best
-local levcache = {}
 local function lev(str1, str2, limit)
-  if levcache[str1..":"..str2] then
-    return levcache[str1..":"..str2]
+  local key = str1 .. ":" .. str2
+  local reverse = str2 .. ":" .. str1
+  local cached = levenshteinCache:Get(key)
+
+  if cached then
+    return cached
+  end
+
+  cached = levenshteinCache:Get(reverse)
+  if cached then
+    -- ensure both directions are cached for future lookups
+    levenshteinCache:Set(key, cached)
+    return cached
   end
 
   len1, len2, cost = string.len(str1), string.len(str2), 0
@@ -117,14 +240,21 @@ local function lev(str1, str2, limit)
     end
 
     if limit and best >= limit then
-      levcache[str1..":"..str2] = limit
+      levenshteinCache:Set(key, limit)
+      if key ~= reverse then
+        levenshteinCache:Set(reverse, limit)
+      end
       return limit
     end
   end
 
   -- return the levenshtein distance
-  levcache[str1..":"..str2] = matrix[len1][len2]
-  return matrix[len1][len2]
+  local distance = matrix[len1][len2]
+  levenshteinCache:Set(key, distance)
+  if key ~= reverse then
+    levenshteinCache:Set(reverse, distance)
+  end
+  return distance
 end
 
 local loc_core, loc_update

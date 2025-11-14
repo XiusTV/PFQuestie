@@ -81,6 +81,21 @@ pfQuest.questlog = {}
 pfQuest.questlog_tmp = {}
 pfQuest.initialScan = true
 
+function pfQuest:ClearCaches(reason)
+  if pfDatabase and pfDatabase.ClearCaches then
+    pfDatabase:ClearCaches()
+  end
+
+  if pfMap and pfMap.ClearNodeCaches then
+    pfMap:ClearNodeCaches(reason or "manual", true)
+  end
+
+  if pfQuest_config and pfQuest_config.debug then
+    local suffix = reason and (" [" .. reason .. "]") or ""
+    self:Debug("Clear All|cff33ffcc Cache|r" .. suffix)
+  end
+end
+
 local function tsize(tbl)
   if not tbl or not type(tbl) == "table" then return 0 end
   local c = 0
@@ -368,6 +383,7 @@ function pfQuest:UpdateQuestlog()
   if isInitialScan then
     pfQuest.initialScan = false
   end
+  -- Update tracker (will defer if in combat)
   if QuestieLoader and QuestieLoader.ImportModule then
     local tracker = QuestieLoader:ImportModule("QuestieTracker")
     if tracker and tracker.started and tracker.Update then

@@ -1,0 +1,10 @@
+## Interface: 30300
+## Title: pfQuest Locale - koKR
+## Notes: pfQuest locale data (koKR)
+## Author: Shagu
+## LoadOnDemand: 1
+## Dependencies: pfQuest-wotlk
+
+..\pfQuest-wotlk\init\koKR.xml
+..\pfQuest-wotlk\init\koKR-tbc.xml
+
